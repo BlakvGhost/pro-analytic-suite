@@ -18,6 +18,7 @@ class Analytic_Suite_Activator {
      * Creates lightweight analytics tables and schedules sync.
      */
     public static function activate() {
+        self::add_capabilities();
         self::create_tables();
 
         if ( ! wp_next_scheduled( 'analytic_suite_daily_sync' ) ) {
@@ -25,6 +26,22 @@ class Analytic_Suite_Activator {
         }
 
         add_option( 'analytic_suite_version', ANALYTIC_SUITE_VERSION );
+    }
+
+    /**
+     * Grants plugin access to administrators and WooCommerce shop managers.
+     */
+    public static function add_capabilities() {
+        $roles = array( 'administrator', 'shop_manager' );
+
+        foreach ( $roles as $role_name ) {
+            $role = get_role( $role_name );
+
+            if ( $role ) {
+                $role->add_cap( 'analytic_suite_view_analytics' );
+                $role->add_cap( 'analytic_suite_manage_analytics' );
+            }
+        }
     }
 
     /**

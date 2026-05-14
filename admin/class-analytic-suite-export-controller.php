@@ -34,7 +34,7 @@ class Analytic_Suite_Export_Controller {
      * Streams a CSV export.
      */
     public function export_csv() {
-        if ( ! current_user_can( 'manage_options' ) ) {
+        if ( ! current_user_can( 'analytic_suite_manage_analytics' ) ) {
             wp_die( esc_html__( 'Accès refusé.', 'analytic-suite' ) );
         }
 

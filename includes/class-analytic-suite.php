@@ -15,16 +15,25 @@ if ( ! defined( 'ABSPATH' ) ) {
 class Analytic_Suite {
 
     /**
+     * Admin page renderer.
+     *
+     * @var Analytic_Suite_Admin
+     */
+    private $admin;
+
+    /**
      * Registers plugin hooks.
      */
     public function run() {
         $this->load_dependencies();
 
         add_action( 'plugins_loaded', array( $this, 'load_textdomain' ) );
+        add_action( 'admin_init', array( $this, 'ensure_capabilities' ) );
         add_action( 'admin_menu', array( $this, 'register_admin_menu' ) );
         add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_admin_assets' ) );
         add_action( 'admin_post_analytic_suite_export_csv', array( $this, 'export_csv' ) );
         add_action( 'analytic_suite_daily_sync', array( $this, 'run_daily_sync' ) );
+        add_filter( 'plugin_action_links_' . plugin_basename( ANALYTIC_SUITE_FILE ), array( $this, 'add_plugin_action_links' ) );
     }
 
     /**
@@ -49,8 +58,35 @@ class Analytic_Suite {
      * Registers admin pages.
      */
     public function register_admin_menu() {
-        $admin = new Analytic_Suite_Admin( $this->get_dashboard_service() );
-        $admin->register_menu();
+        $this->admin = new Analytic_Suite_Admin( $this->get_dashboard_service() );
+        $this->admin->register_menu();
+    }
+
+    /**
+     * Ensures access capabilities exist for already-activated installs.
+     */
+    public function ensure_capabilities() {
+        Analytic_Suite_Activator::add_capabilities();
+
+        $user = wp_get_current_user();
+        if ( $user instanceof WP_User ) {
+            $user->get_role_caps();
+        }
+    }
+
+    /**
+     * Adds dashboard shortcut on the plugins page.
+     *
+     * @param array $links Existing action links.
+     * @return array
+     */
+    public function add_plugin_action_links( $links ) {
+        if ( current_user_can( 'analytic_suite_view_analytics' ) ) {
+            $dashboard_link = '<a href="' . esc_url( admin_url( 'admin.php?page=analytic-suite' ) ) . '">' . esc_html__( 'Dashboard', 'analytic-suite' ) . '</a>';
+            array_unshift( $links, $dashboard_link );
+        }
+
+        return $links;
     }
 
     /**

@@ -35,9 +35,9 @@ class Analytic_Suite_Admin {
      */
     public function register_menu() {
         add_menu_page(
-            __( 'Analytics', 'analytic-suite' ),
-            __( 'Analytics', 'analytic-suite' ),
-            'manage_options',
+            __( 'Ferray Analytics', 'analytic-suite' ),
+            __( 'Ferray Analytics', 'analytic-suite' ),
+            'analytic_suite_view_analytics',
             'analytic-suite',
             array( $this, 'render_dashboard_page' ),
             'dashicons-chart-area',
@@ -59,7 +59,7 @@ class Analytic_Suite_Admin {
                 'analytic-suite',
                 $title,
                 $title,
-                'manage_options',
+                'analytic_suite_view_analytics',
                 $slug,
                 array( $this, 'render_submenu_page' )
             );
@@ -93,7 +93,7 @@ class Analytic_Suite_Admin {
      * @param string $view View identifier.
      */
     private function render_page( $view ) {
-        if ( ! current_user_can( 'manage_options' ) ) {
+        if ( ! current_user_can( 'analytic_suite_view_analytics' ) ) {
             wp_die( esc_html__( 'Accès refusé.', 'analytic-suite' ) );
         }
 
