@@ -1,0 +1,72 @@
+.analytic-suite {
+    max-width: 1400px;
+}
+
+.analytic-suite-filters {
+    align-items: end;
+    background: #fff;
+    border: 1px solid #dcdcde;
+    display: grid;
+    gap: 12px;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    margin: 18px 0;
+    padding: 16px;
+}
+
+.analytic-suite-filters label span {
+    display: block;
+    font-weight: 600;
+    margin-bottom: 4px;
+}
+
+.analytic-suite-filters input,
+.analytic-suite-filters select {
+    width: 100%;
+}
+
+.analytic-suite-cards {
+    display: grid;
+    gap: 16px;
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    margin: 18px 0;
+}
+
+.analytic-suite-card {
+    background: #fff;
+    border: 1px solid #dcdcde;
+    border-radius: 6px;
+    padding: 18px;
+}
+
+.analytic-suite-card span {
+    color: #646970;
+    display: block;
+    font-size: 13px;
+    margin-bottom: 8px;
+}
+
+.analytic-suite-card strong {
+    color: #1d2327;
+    display: block;
+    font-size: 26px;
+    line-height: 1.2;
+}
+
+.analytic-suite-grid {
+    display: grid;
+    gap: 16px;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+}
+
+.analytic-suite-panel {
+    background: #fff;
+    border: 1px solid #dcdcde;
+    border-radius: 6px;
+    margin: 18px 0;
+    padding: 18px;
+}
+
+.analytic-suite-panel h2 {
+    font-size: 16px;
+    margin: 0 0 12px;
+}
