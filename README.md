@@ -2,7 +2,7 @@
 
 ## Nom provisoire
 
-Ferray Analytics Suite
+Pro Analytics Suite
 
 ---
 

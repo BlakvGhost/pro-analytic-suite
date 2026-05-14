@@ -1,10 +1,10 @@
 <?php
 /**
- * Plugin Name: Ferray Analytics Suite
- * Plugin URI: https://ferray.com
+ * Plugin Name: Pro Analytics Suite
+ * Plugin URI: https://github.com/BlakvGhost/Pro-Analytics-Suite
  * Description: Tableau de bord analytique pour WooCommerce et FluentBooking.
  * Version: 0.1.0
- * Author: Ferray
+ * Author: Kabirou ALASSANE
  * Text Domain: analytic-suite
  * Domain Path: /languages
  *

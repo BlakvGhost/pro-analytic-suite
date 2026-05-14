@@ -2,7 +2,7 @@
 
 ## Project Structure & Module Organization
 
-This repository is the early scaffold for a WordPress analytics plugin, described in `README.md` as Ferray Analytics Suite. It currently contains project requirements only; add implementation files at the plugin root using standard WordPress plugin conventions.
+This repository is the early scaffold for a WordPress analytics plugin, described in `README.md` as Pro Analytics Suite. It currently contains project requirements only; add implementation files at the plugin root using standard WordPress plugin conventions.
 
 Recommended layout as the plugin grows:
 

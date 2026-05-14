@@ -35,8 +35,8 @@ class Analytic_Suite_Admin {
      */
     public function register_menu() {
         add_menu_page(
-            __( 'Ferray Analytics', 'analytic-suite' ),
-            __( 'Ferray Analytics', 'analytic-suite' ),
+            __( 'Pro Analytics', 'analytic-suite' ),
+            __( 'Pro Analytics', 'analytic-suite' ),
             'analytic_suite_view_analytics',
             'analytic-suite',
             array( $this, 'render_dashboard_page' ),
