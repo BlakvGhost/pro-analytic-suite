@@ -183,6 +183,7 @@ class Analytic_Suite_Admin {
             __( 'Période', 'analytic-suite' ),
             $filters['period'],
             array(
+                'all'     => __( 'Toutes les données', 'analytic-suite' ),
                 '7-days'  => __( '7 jours', 'analytic-suite' ),
                 '30-days' => __( '30 jours', 'analytic-suite' ),
                 'year'    => __( 'Année en cours', 'analytic-suite' ),

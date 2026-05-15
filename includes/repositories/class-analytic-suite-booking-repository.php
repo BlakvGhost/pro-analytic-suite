@@ -30,14 +30,10 @@ class Analytic_Suite_Booking_Repository {
     public function get_metrics( $filters ) {
         global $wpdb;
 
-        $table = $this->find_booking_table();
-
-        if ( ! $table ) {
-            return $this->empty_metrics();
-        }
-
-        $columns = $this->get_columns( $table );
-        $rows    = $this->get_booking_rows( $table, $columns, $filters );
+        $table   = $this->find_booking_table();
+        $columns = $table ? $this->get_columns( $table ) : array();
+        $rows    = $table ? $this->get_booking_rows( $table, $columns, $filters ) : array();
+        $rows    = $this->merge_booking_rows( $rows, $this->get_booking_rows_from_orders( $filters ) );
 
         $total             = 0;
         $cancelled         = 0;
@@ -59,13 +55,15 @@ class Analytic_Suite_Booking_Repository {
             $booking_id = absint( $this->value_from_columns( $row, array( 'id', 'booking_id' ) ) );
             $gender    = '';
             $service_label = '';
+            $order = false;
 
             if ( ! $duration ) {
                 $duration = $this->get_duration_from_row( $row );
             }
 
             if ( function_exists( 'wc_get_order' ) ) {
-                $order = $source_id ? wc_get_order( $source_id ) : false;
+                $order_id = absint( $this->value_from_columns( $row, array( 'analytic_suite_order_id', 'source_id', 'order_id' ) ) );
+                $order    = $order_id ? wc_get_order( $order_id ) : false;
 
                 if ( ! $order && $booking_id ) {
                     $order = $this->get_order_by_booking_id( $booking_id );
@@ -82,6 +80,10 @@ class Analytic_Suite_Booking_Repository {
 
                     $gender = $this->normalize_gender( $order->get_meta( 'gender_' ) );
                     $service_label = $this->get_order_service_label( $order );
+
+                    if ( '' === $status ) {
+                        $status = $order->get_status();
+                    }
                 }
             }
 
@@ -150,7 +152,7 @@ class Analytic_Suite_Booking_Repository {
         arsort( $gender_breakdown );
 
         return array(
-            'available'          => true,
+            'available'          => ! empty( $table ) || ! empty( $rows ),
             'table'              => $table,
             'total_bookings'     => $total,
             'cancelled_bookings' => $cancelled,
@@ -300,6 +302,214 @@ class Analytic_Suite_Booking_Repository {
         }
 
         return $wpdb->get_results( $sql, ARRAY_A );
+    }
+
+    /**
+     * Builds booking-like rows from WooCommerce orders that contain __fcal_booking_id.
+     *
+     * @param array $filters Filters.
+     * @return array
+     */
+    private function get_booking_rows_from_orders( $filters ) {
+        if ( ! function_exists( 'wc_get_orders' ) ) {
+            return array();
+        }
+
+        $query_args = $this->build_order_booking_query_args( $filters );
+
+        if ( empty( $query_args ) ) {
+            return array();
+        }
+
+        $orders = wc_get_orders( $query_args );
+        $rows   = array();
+
+        foreach ( $orders as $order ) {
+            if ( ! $order instanceof WC_Order ) {
+                continue;
+            }
+
+            foreach ( $order->get_items() as $item ) {
+                $booking_id = absint( $item->get_meta( '__fcal_booking_id', true ) );
+
+                if ( ! $booking_id ) {
+                    continue;
+                }
+
+                $row = $this->get_booking_row_by_id( $booking_id );
+
+                if ( ! is_array( $row ) ) {
+                    $row = array();
+                }
+
+                $row['id']                      = isset( $row['id'] ) ? $row['id'] : $booking_id;
+                $row['booking_id']              = $booking_id;
+                $row['source_id']               = $order->get_id();
+                $row['analytic_suite_order_id'] = $order->get_id();
+                $row['analytic_suite_item_name'] = $item->get_name();
+
+                if ( empty( $row['status'] ) ) {
+                    $row['status'] = $order->get_status();
+                }
+
+                $rows[] = $row;
+            }
+        }
+
+        return $rows;
+    }
+
+    /**
+     * Builds WooCommerce query args for order-linked bookings.
+     *
+     * @param array $filters Filters.
+     * @return array
+     */
+    private function build_order_booking_query_args( $filters ) {
+        $order_ids = $this->get_order_ids_with_booking_items();
+
+        if ( empty( $order_ids ) ) {
+            return array();
+        }
+
+        $args = array(
+            'limit'   => -1,
+            'return'  => 'objects',
+            'include' => $order_ids,
+            'orderby' => 'date',
+            'order'   => 'DESC',
+        );
+
+        if ( ! empty( $filters['status'] ) ) {
+            $args['status'] = array( sanitize_key( $filters['status'] ) );
+        } else {
+            $args['status'] = array( 'wc-completed', 'wc-processing', 'wc-on-hold', 'wc-cancelled', 'wc-refunded', 'wc-failed' );
+        }
+
+        if ( ! empty( $filters['date_from'] ) || ! empty( $filters['date_to'] ) ) {
+            $from                 = ! empty( $filters['date_from'] ) ? $filters['date_from'] : '1970-01-01';
+            $to                   = ! empty( $filters['date_to'] ) ? $filters['date_to'] : current_time( 'Y-m-d' );
+            $args['date_created'] = $from . '...' . $to;
+        }
+
+        if ( ! empty( $filters['customer'] ) && is_email( $filters['customer'] ) ) {
+            $args['billing_email'] = sanitize_email( $filters['customer'] );
+        }
+
+        if ( ! empty( $filters['product'] ) ) {
+            $args['product_id'] = absint( $filters['product'] );
+        }
+
+        return $args;
+    }
+
+    /**
+     * Gets WooCommerce order IDs containing FluentBooking item meta.
+     *
+     * @return array
+     */
+    private function get_order_ids_with_booking_items() {
+        global $wpdb;
+
+        if ( ! $this->table_exists( $wpdb->prefix . 'woocommerce_order_items' ) || ! $this->table_exists( $wpdb->prefix . 'woocommerce_order_itemmeta' ) ) {
+            return array();
+        }
+
+        $order_ids = $wpdb->get_col(
+            $wpdb->prepare(
+                "SELECT DISTINCT oi.order_id
+                FROM {$wpdb->prefix}woocommerce_order_items oi
+                INNER JOIN {$wpdb->prefix}woocommerce_order_itemmeta oim ON oi.order_item_id = oim.order_item_id
+                WHERE oim.meta_key = %s
+                AND oim.meta_value != ''
+                ORDER BY oi.order_id DESC
+                LIMIT 5000",
+                '__fcal_booking_id'
+            )
+        );
+
+        return array_map( 'absint', (array) $order_ids );
+    }
+
+    /**
+     * Reads a FluentBooking row by booking ID, across known tables.
+     *
+     * @param int $booking_id Booking ID.
+     * @return array
+     */
+    private function get_booking_row_by_id( $booking_id ) {
+        global $wpdb;
+
+        $booking_id = absint( $booking_id );
+
+        if ( ! $booking_id ) {
+            return array();
+        }
+
+        $table = $this->find_booking_table();
+
+        if ( ! $table ) {
+            return array();
+        }
+
+        $row = $wpdb->get_row(
+            $wpdb->prepare(
+                'SELECT * FROM `' . esc_sql( $table ) . '` WHERE id = %d LIMIT 1',
+                $booking_id
+            ),
+            ARRAY_A
+        );
+
+        return is_array( $row ) ? $row : array();
+    }
+
+    /**
+     * Merges booking rows, preferring enriched order-linked rows for duplicates.
+     *
+     * @param array $booking_rows Booking table rows.
+     * @param array $order_rows   Order-derived rows.
+     * @return array
+     */
+    private function merge_booking_rows( $booking_rows, $order_rows ) {
+        $merged = array();
+
+        foreach ( $booking_rows as $row ) {
+            $key            = $this->get_booking_row_key( $row );
+            $merged[ $key ] = $row;
+        }
+
+        foreach ( $order_rows as $row ) {
+            $key = $this->get_booking_row_key( $row );
+
+            if ( isset( $merged[ $key ] ) ) {
+                $merged[ $key ] = array_merge( $merged[ $key ], array_filter( $row ) );
+            } else {
+                $merged[ $key ] = $row;
+            }
+        }
+
+        return array_values( $merged );
+    }
+
+    /**
+     * Gets a stable key for a booking row.
+     *
+     * @param array $row Row.
+     * @return string
+     */
+    private function get_booking_row_key( $row ) {
+        $booking_id = absint( $this->value_from_columns( $row, array( 'booking_id', 'id' ) ) );
+        $order_id   = absint( $this->value_from_columns( $row, array( 'analytic_suite_order_id', 'source_id', 'order_id' ) ) );
+
+        if ( $booking_id ) {
+            return 'booking:' . $booking_id;
+        }
+
+        if ( $order_id ) {
+            return 'order:' . $order_id;
+        }
+
+        return 'row:' . md5( wp_json_encode( $row ) );
     }
 
     /**

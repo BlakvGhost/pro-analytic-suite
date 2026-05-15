@@ -55,7 +55,7 @@ class Analytic_Suite_Dashboard_Service {
      * @return array
      */
     public function get_filters_from_request( $source ) {
-        $period = isset( $source['period'] ) ? sanitize_key( wp_unslash( $source['period'] ) ) : '30-days';
+        $period = isset( $source['period'] ) ? sanitize_key( wp_unslash( $source['period'] ) ) : 'all';
 
         $filters = array(
             'period'       => $period,
@@ -150,6 +150,13 @@ class Analytic_Suite_Dashboard_Service {
      * @return array
      */
     private function resolve_period_dates( $filters ) {
+        if ( 'all' === $filters['period'] ) {
+            $filters['date_from'] = '';
+            $filters['date_to']   = '';
+
+            return $filters;
+        }
+
         if ( 'custom' === $filters['period'] ) {
             return $filters;
         }
