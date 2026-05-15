@@ -144,6 +144,86 @@ class Analytic_Suite_Dashboard_Service {
     }
 
     /**
+     * Gets all available filter options from data sources.
+     *
+     * @return array
+     */
+    public function get_filter_options() {
+        $empty_filters = array(
+            'period'       => 'all',
+            'date_from'    => '',
+            'date_to'      => '',
+            'country'      => '',
+            'status'       => '',
+            'booking_type' => '',
+            'exclude_booking_type' => '',
+            'duration'     => 0,
+            'product'      => 0,
+            'gender'       => '',
+            'customer'     => '',
+        );
+
+        $order_metrics   = $this->orders->get_metrics( $empty_filters );
+        $booking_metrics = $this->bookings->get_metrics( $empty_filters );
+
+        $products = array();
+        foreach ( $order_metrics['product_sales'] ?? array() as $key => $product ) {
+            if ( is_numeric( $key ) ) {
+                $products[ $key ] = $product['name'];
+            } else {
+                $products[ $product['name'] ] = $product['name'];
+            }
+        }
+
+        return array(
+            'countries' => $this->merge_filter_options(
+                array_keys( $order_metrics['country_sales'] ?? array() ),
+                array_keys( $booking_metrics['country_breakdown'] ?? array() )
+            ),
+            'statuses' => $this->merge_filter_options(
+                array_keys( $order_metrics['status_breakdown'] ?? array() ),
+                array_keys( $booking_metrics['status_breakdown'] ?? array() )
+            ),
+            'booking_types' => array_keys( $booking_metrics['type_breakdown'] ?? array() ),
+            'exclude_booking_types' => array_keys( $booking_metrics['type_breakdown'] ?? array() ),
+            'durations' => $this->normalize_duration_options( array_keys( $booking_metrics['duration_breakdown'] ?? array() ) ),
+            'products' => $products,
+            'genders' => $this->merge_filter_options(
+                array_keys( $order_metrics['gender_breakdown'] ?? array() ),
+                array_keys( $booking_metrics['gender_breakdown'] ?? array() )
+            ),
+        );
+    }
+
+    /**
+     * Normalizes duration options to extract numeric values.
+     *
+     * @param array $durations Duration strings.
+     * @return array
+     */
+    private function normalize_duration_options( $durations ) {
+        $normalized = array();
+        foreach ( $durations as $duration ) {
+            preg_match( '/(\d+)/', $duration, $matches );
+            if ( ! empty( $matches[1] ) ) {
+                $normalized[ $matches[1] ] = $duration;
+            }
+        }
+        return $normalized;
+    }
+
+    /**
+     * Merges two arrays of filter options, removing duplicates.
+     *
+     * @param array $arr1 First array.
+     * @param array $arr2 Second array.
+     * @return array
+     */
+    private function merge_filter_options( $arr1, $arr2 ) {
+        return array_unique( array_merge( $arr1, $arr2 ) );
+    }
+
+    /**
      * Resolves shortcut periods into dates.
      *
      * @param array $filters Filters.

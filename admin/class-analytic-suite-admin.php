@@ -97,17 +97,18 @@ class Analytic_Suite_Admin {
             wp_die( esc_html__( 'Accès refusé.', 'analytic-suite' ) );
         }
 
-        $filters = $this->dashboard_service->get_filters_from_request( $_GET );
-        $data    = $this->dashboard_service->get_dashboard_data( $filters );
-        $titles  = $this->get_page_titles();
-        $title   = isset( $titles[ $view ] ) ? $titles[ $view ] : $titles['dashboard'];
+        $filters       = $this->dashboard_service->get_filters_from_request( $_GET );
+        $data          = $this->dashboard_service->get_dashboard_data( $filters );
+        $filter_options = $this->dashboard_service->get_filter_options();
+        $titles        = $this->get_page_titles();
+        $title         = isset( $titles[ $view ] ) ? $titles[ $view ] : $titles['dashboard'];
 
         echo '<div class="wrap analytic-suite">';
         echo '<h1>' . esc_html( $title ) . '</h1>';
         $this->render_tabs( $view );
 
         $this->render_notices( $data );
-        $this->render_filters( $filters, $view );
+        $this->render_filters( $filters, $filter_options, $view );
 
         if ( 'dashboard' === $view ) {
             $this->render_dashboard( $data );
@@ -200,10 +201,11 @@ class Analytic_Suite_Admin {
     /**
      * Renders filters.
      *
-     * @param array  $filters Filters.
-     * @param string $view    Current view.
+     * @param array  $filters       Filters.
+     * @param array  $filter_options Available filter options.
+     * @param string $view          Current view.
      */
-    private function render_filters( $filters, $view ) {
+    private function render_filters( $filters, $filter_options, $view ) {
         $page = 'dashboard' === $view ? 'analytic-suite' : 'analytic-suite-' . $view;
 
         echo '<form method="get" class="analytic-suite-filters">';
@@ -224,17 +226,90 @@ class Analytic_Suite_Admin {
 
         $this->render_input( 'date_from', __( 'Du', 'analytic-suite' ), $filters['date_from'], 'date' );
         $this->render_input( 'date_to', __( 'Au', 'analytic-suite' ), $filters['date_to'], 'date' );
-        $this->render_input( 'country', __( 'Pays', 'analytic-suite' ), $filters['country'], 'text' );
-        $this->render_input( 'status', __( 'Statut', 'analytic-suite' ), $filters['status'], 'text' );
-        $this->render_input( 'booking_type', __( 'Type réservation', 'analytic-suite' ), $filters['booking_type'], 'text' );
-        $this->render_input( 'exclude_booking_type', __( 'Exclure type', 'analytic-suite' ), $filters['exclude_booking_type'], 'text' );
-        $this->render_input( 'duration', __( 'Durée', 'analytic-suite' ), $filters['duration'] ? $filters['duration'] : '', 'number' );
-        $this->render_input( 'product', __( 'Produit ID', 'analytic-suite' ), $filters['product'] ? $filters['product'] : '', 'number' );
-        $this->render_input( 'gender', __( 'Civilité', 'analytic-suite' ), $filters['gender'], 'text' );
+
+        $this->render_select(
+            'country',
+            __( 'Pays', 'analytic-suite' ),
+            $filters['country'],
+            $this->build_options_array( $filter_options['countries'], true )
+        );
+
+        $this->render_select(
+            'status',
+            __( 'Statut', 'analytic-suite' ),
+            $filters['status'],
+            $this->build_options_array( $filter_options['statuses'], true )
+        );
+
+        $this->render_select(
+            'booking_type',
+            __( 'Type réservation', 'analytic-suite' ),
+            $filters['booking_type'],
+            $this->build_options_array( $filter_options['booking_types'], true )
+        );
+
+        $this->render_select(
+            'exclude_booking_type',
+            __( 'Exclure type', 'analytic-suite' ),
+            $filters['exclude_booking_type'],
+            $this->build_options_array( $filter_options['exclude_booking_types'], true )
+        );
+
+        $this->render_select(
+            'duration',
+            __( 'Durée', 'analytic-suite' ),
+            $filters['duration'] ? (string) $filters['duration'] : '',
+            $this->build_options_array( $filter_options['durations'], true )
+        );
+
+        $this->render_select(
+            'product',
+            __( 'Produit', 'analytic-suite' ),
+            $filters['product'] ? (string) $filters['product'] : '',
+            $this->build_options_array( $filter_options['products'], true, true )
+        );
+
+        $this->render_select(
+            'gender',
+            __( 'Civilité', 'analytic-suite' ),
+            $filters['gender'],
+            $this->build_options_array( $filter_options['genders'], true )
+        );
+
         $this->render_input( 'customer', __( 'Client', 'analytic-suite' ), $filters['customer'], 'text' );
 
         submit_button( __( 'Filtrer', 'analytic-suite' ), 'primary', '', false );
         echo '</form>';
+    }
+
+    /**
+     * Builds an options array for select fields.
+     *
+     * @param array  $items      Items.
+     * @param bool   $add_empty  Add empty option.
+     * @param bool   $use_keys   Use items as keys.
+     * @return array
+     */
+    private function build_options_array( $items, $add_empty = false, $use_keys = false ) {
+        $options = array();
+
+        if ( $add_empty ) {
+            $options[''] = __( 'Tous', 'analytic-suite' );
+        }
+
+        if ( empty( $items ) ) {
+            return $options;
+        }
+
+        foreach ( $items as $key => $value ) {
+            if ( $use_keys ) {
+                $options[ $key ] = $value;
+            } else {
+                $options[ $value ] = $value;
+            }
+        }
+
+        return $options;
     }
 
     /**
