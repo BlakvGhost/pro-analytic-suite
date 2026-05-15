@@ -36,6 +36,7 @@ class Analytic_Suite {
         add_action( 'admin_post_analytic_suite_export_pdf', array( $this, 'export_pdf' ) );
         add_action( 'analytic_suite_daily_sync', array( $this, 'run_daily_sync' ) );
         add_filter( 'plugin_action_links_' . plugin_basename( ANALYTIC_SUITE_FILE ), array( $this, 'add_plugin_action_links' ) );
+        add_shortcode( 'analytics_public', array( $this, 'render_public_analytics' ) );
     }
 
     /**
@@ -160,5 +161,82 @@ class Analytic_Suite {
             new Analytic_Suite_Booking_Repository(),
             new Analytic_Suite_Content_Repository()
         );
+    }
+
+    /**
+     * Renders public analytics shortcode.
+     *
+     * @param array $atts Shortcode attributes.
+     * @return string
+     */
+    public function render_public_analytics( $atts ) {
+        $content_repo = new Analytic_Suite_Content_Repository();
+        $data         = $content_repo->get_public_demographics();
+
+        ob_start();
+        ?>
+        <div class="analytic-suite-public">
+            <div class="as-public-grid">
+                <div class="as-public-card">
+                    <span class="as-card-label"><?php esc_html_e( 'Utilisateurs inscrits', 'analytic-suite' ); ?></span>
+                    <strong class="as-card-value"><?php echo esc_html( number_format_i18n( $data['total_users'] ) ); ?></strong>
+                </div>
+                <div class="as-public-card">
+                    <span class="as-card-label"><?php esc_html_e( 'Utilisateurs connectés', 'analytic-suite' ); ?></span>
+                    <strong class="as-card-value"><?php echo esc_html( number_format_i18n( $data['logged_in_users'] ) ); ?></strong>
+                </div>
+                <div class="as-public-card">
+                    <span class="as-card-label"><?php esc_html_e( 'Ayant fini un contenu', 'analytic-suite' ); ?></span>
+                    <strong class="as-card-value"><?php echo esc_html( number_format_i18n( $data['completed_content'] ) ); ?></strong>
+                </div>
+                <div class="as-public-card">
+                    <span class="as-card-label"><?php esc_html_e( 'Situation de handicap', 'analytic-suite' ); ?></span>
+                    <strong class="as-card-value"><?php echo esc_html( number_format_i18n( $data['disability_count'] ) ); ?></strong>
+                </div>
+            </div>
+
+            <div class="as-public-sections">
+                <div class="as-public-section">
+                    <h3><?php esc_html_e( 'Âge', 'analytic-suite' ); ?></h3>
+                    <table class="widefat striped">
+                        <?php if ( ! empty( $data['age_breakdown'] ) ) : ?>
+                            <?php foreach ( $data['age_breakdown'] as $range => $count ) : ?>
+                                <tr><td><?php echo esc_html( $range ); ?></td><td><?php echo esc_html( number_format_i18n( $count ) ); ?></td></tr>
+                            <?php endforeach; ?>
+                        <?php else : ?>
+                            <tr><td colspan="2"><?php esc_html_e( 'Aucune donnée', 'analytic-suite' ); ?></td></tr>
+                        <?php endif; ?>
+                    </table>
+                </div>
+
+                <div class="as-public-section">
+                    <h3><?php esc_html_e( 'Sexe', 'analytic-suite' ); ?></h3>
+                    <table class="widefat striped">
+                        <?php if ( ! empty( $data['sex_breakdown'] ) ) : ?>
+                            <?php foreach ( $data['sex_breakdown'] as $sex => $count ) : ?>
+                                <tr><td><?php echo esc_html( $sex ); ?></td><td><?php echo esc_html( number_format_i18n( $count ) ); ?></td></tr>
+                            <?php endforeach; ?>
+                        <?php else : ?>
+                            <tr><td colspan="2"><?php esc_html_e( 'Aucune donnée', 'analytic-suite' ); ?></td></tr>
+                        <?php endif; ?>
+                    </table>
+                </div>
+
+                <div class="as-public-section">
+                    <h3><?php esc_html_e( 'Localisation', 'analytic-suite' ); ?></h3>
+                    <table class="widefat striped">
+                        <?php if ( ! empty( $data['location_breakdown'] ) ) : ?>
+                            <?php foreach ( $data['location_breakdown'] as $zone => $count ) : ?>
+                                <tr><td><?php echo esc_html( $zone ); ?></td><td><?php echo esc_html( number_format_i18n( $count ) ); ?></td></tr>
+                            <?php endforeach; ?>
+                        <?php else : ?>
+                            <tr><td colspan="2"><?php esc_html_e( 'Aucune donnée', 'analytic-suite' ); ?></td></tr>
+                        <?php endif; ?>
+                    </table>
+                </div>
+            </div>
+        </div>
+        <?php
+        return ob_get_clean();
     }
 }

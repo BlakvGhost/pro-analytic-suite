@@ -314,4 +314,176 @@ class Analytic_Suite_Content_Repository {
 
         return (int) $query->found_posts;
     }
+
+    /**
+     * Gets public user demographics.
+     *
+     * @return array
+     */
+    public function get_public_demographics() {
+        $users = get_users( array( 'fields' => 'ids' ) );
+
+        $total_users         = count( $users );
+        $age_breakdown       = $this->get_age_breakdown();
+        $sex_breakdown       = $this->get_sex_breakdown();
+        $location_breakdown  = $this->get_location_breakdown();
+        $disability_count    = $this->get_disability_count();
+        $logged_in_users     = $this->get_logged_in_users_count();
+        $completed_content   = $this->get_completed_content_users();
+
+        return array(
+            'total_users'        => $total_users,
+            'age_breakdown'      => $age_breakdown,
+            'sex_breakdown'      => $sex_breakdown,
+            'location_breakdown' => $location_breakdown,
+            'disability_count'   => $disability_count,
+            'logged_in_users'    => $logged_in_users,
+            'completed_content'  => $completed_content,
+        );
+    }
+
+    /**
+     * Gets age breakdown from user meta.
+     *
+     * @return array
+     */
+    private function get_age_breakdown() {
+        global $wpdb;
+
+        $ranges = array(
+            '18-24' => array( 18, 24 ),
+            '25-34' => array( 25, 34 ),
+            '35-44' => array( 35, 44 ),
+            '45-54' => array( 45, 54 ),
+            '55-64' => array( 55, 64 ),
+            '65+'   => array( 65, 200 ),
+        );
+
+        $breakdown = array();
+
+        foreach ( $ranges as $label => $range ) {
+            $count = $wpdb->get_var(
+                $wpdb->prepare(
+                    "SELECT COUNT(*) FROM {$wpdb->usermeta} WHERE meta_key = 'age' AND meta_value >= %d AND meta_value <= %d",
+                    $range[0],
+                    $range[1]
+                )
+            );
+            $breakdown[ $label ] = (int) $count;
+        }
+
+        return $breakdown;
+    }
+
+    /**
+     * Gets sex breakdown from user meta.
+     *
+     * @return array
+     */
+    private function get_sex_breakdown() {
+        global $wpdb;
+
+        $results = $wpdb->get_results(
+            "SELECT meta_value, COUNT(*) as count 
+            FROM {$wpdb->usermeta} 
+            WHERE meta_key IN ('sexe', 'sex') 
+            AND meta_value != '' 
+            GROUP BY meta_value",
+            ARRAY_A
+        );
+
+        $breakdown = array();
+        foreach ( $results as $row ) {
+            $label = ! empty( $row['meta_value'] ) ? ucfirst( $row['meta_value'] ) : __( 'Non défini', 'analytic-suite' );
+            $breakdown[ $label ] = (int) $row['count'];
+        }
+
+        return $breakdown;
+    }
+
+    /**
+     * Gets location breakdown (rural/urban) from user meta.
+     *
+     * @return array
+     */
+    private function get_location_breakdown() {
+        global $wpdb;
+
+        $results = $wpdb->get_results(
+            "SELECT meta_value, COUNT(*) as count 
+            FROM {$wpdb->usermeta} 
+            WHERE meta_key IN ('zone', 'localisation', 'location_type') 
+            AND meta_value != '' 
+            GROUP BY meta_value",
+            ARRAY_A
+        );
+
+        $breakdown = array();
+        $rural_labels    = array( 'rurale', 'rural', 'campagne' );
+        $urban_labels    = array( 'urbaine', 'urban', 'ville' );
+
+        foreach ( $results as $row ) {
+            $value = strtolower( trim( $row['meta_value'] ) );
+
+            if ( in_array( $value, $rural_labels, true ) ) {
+                $breakdown[ __( 'Zone rurale', 'analytic-suite' ) ] = (int) $row['count'];
+            } elseif ( in_array( $value, $urban_labels, true ) ) {
+                $breakdown[ __( 'Zone urbaine', 'analytic-suite' ) ] = (int) $row['count'];
+            } else {
+                $breakdown[ ucfirst( $row['meta_value'] ) ] = (int) $row['count'];
+            }
+        }
+
+        return $breakdown;
+    }
+
+    /**
+     * Gets count of users with disability.
+     *
+     * @return int
+     */
+    private function get_disability_count() {
+        global $wpdb;
+
+        return (int) $wpdb->get_var(
+            "SELECT COUNT(*) FROM {$wpdb->usermeta} 
+            WHERE meta_key IN ('handicap', 'disability', 'situation_handicap') 
+            AND meta_value IN ('oui', 'yes', '1', 'true')"
+        );
+    }
+
+    /**
+     * Gets count of users who logged in at least once.
+     *
+     * @return int
+     */
+    private function get_logged_in_users_count() {
+        global $wpdb;
+
+        return (int) $wpdb->get_var(
+            "SELECT COUNT(*) FROM {$wpdb->usermeta} WHERE meta_key = 'last_login' AND meta_value != ''"
+        );
+    }
+
+    /**
+     * Gets count of users who completed masterclass or free content.
+     *
+     * @return int
+     */
+    private function get_completed_content_users() {
+        $masterclass_count = 0;
+        $books_count       = 0;
+
+        if ( $this->table_exists( 'user_masterclass' ) ) {
+            global $wpdb;
+            $masterclass_count = (int) $wpdb->get_var( "SELECT COUNT(DISTINCT user_id) FROM {$wpdb->prefix}user_masterclass" );
+        }
+
+        // if ( $this->table_exists( 'user_livres' ) ) {
+        //     global $wpdb;
+        //     $books_count = (int) $wpdb->get_var( "SELECT COUNT(DISTINCT user_id) FROM {$wpdb->prefix}user_livres" );
+        // }
+
+        return $masterclass_count + $books_count;
+    }
 }

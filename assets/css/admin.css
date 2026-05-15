@@ -402,3 +402,94 @@
         font-size: 24px;
     }
 }
+
+/* Public Analytics Shortcode */
+.analytic-suite-public {
+    --as-bg: #f4f7f6;
+    --as-surface: #ffffff;
+    --as-border: #dfe7e3;
+    --as-text: #17211d;
+    --as-muted: #66746d;
+    --as-primary: #0f766e;
+
+    background: var(--as-bg);
+    padding: 24px;
+    border-radius: 12px;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.analytic-suite-public .as-public-grid {
+    display: grid;
+    gap: 16px;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    margin-bottom: 24px;
+}
+
+.analytic-suite-public .as-public-card {
+    background: var(--as-surface);
+    border: 1px solid var(--as-border);
+    border-radius: 8px;
+    padding: 20px;
+    text-align: center;
+}
+
+.analytic-suite-public .as-card-label {
+    color: var(--as-muted);
+    display: block;
+    font-size: 13px;
+    font-weight: 700;
+    margin-bottom: 8px;
+}
+
+.analytic-suite-public .as-card-value {
+    color: var(--as-primary);
+    font-size: 32px;
+    font-weight: 800;
+}
+
+.analytic-suite-public .as-public-sections {
+    display: grid;
+    gap: 20px;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
+
+.analytic-suite-public .as-public-section {
+    background: var(--as-surface);
+    border: 1px solid var(--as-border);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.analytic-suite-public .as-public-section h3 {
+    background: #f8faf9;
+    border-bottom: 1px solid var(--as-border);
+    color: var(--as-text);
+    font-size: 14px;
+    font-weight: 800;
+    margin: 0;
+    padding: 14px 16px;
+}
+
+.analytic-suite-public .as-public-section table {
+    border: 0;
+    box-shadow: none;
+    margin: 0;
+    width: 100%;
+}
+
+.analytic-suite-public .as-public-section .widefat thead th {
+    background: transparent;
+    font-size: 11px;
+    padding: 10px 16px;
+}
+
+.analytic-suite-public .as-public-section .widefat tbody td {
+    padding: 10px 16px;
+}
+
+.analytic-suite-public .as-public-section .widefat td:last-child {
+    color: var(--as-primary);
+    font-weight: 700;
+    text-align: right;
+}
