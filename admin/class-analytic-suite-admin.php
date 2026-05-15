@@ -372,6 +372,10 @@ class Analytic_Suite_Admin {
         $this->render_card( __( 'Livres consultés', 'analytic-suite' ), $data['contents']['book_downloads'] );
         echo '</div>';
 
+        if ( ! empty( $data['ga']['available'] ) ) {
+            $this->render_ga_cards( $data['ga'] );
+        }
+
         echo '<div class="analytic-suite-grid">';
         $this->render_breakdown_table( __( 'Dîners / Sessions / Diagnostics', 'analytic-suite' ), $data['bookings']['category_breakdown'] );
         $this->render_breakdown_table( __( 'Types de réservation détaillés', 'analytic-suite' ), $data['bookings']['type_breakdown'] );
@@ -383,7 +387,66 @@ class Analytic_Suite_Admin {
         $this->render_breakdown_table( __( 'Top livres blancs', 'analytic-suite' ), $data['contents']['top_books'] );
         $this->render_breakdown_table( __( 'Statuts réservations', 'analytic-suite' ), $data['bookings']['status_breakdown'] );
         $this->render_breakdown_table( __( 'Statuts commandes', 'analytic-suite' ), $data['orders']['status_breakdown'] );
+
+        if ( ! empty( $data['ga']['available'] ) ) {
+            $this->render_ga_tables( $data['ga'] );
+        }
+
         echo '</div>';
+    }
+
+    /**
+     * Renders Google Analytics cards.
+     *
+     * @param array $ga GA data.
+     */
+    private function render_ga_cards( $ga ) {
+        $summary = $ga['summary'];
+        $realtime = $ga['realtime'] ?? array();
+
+        echo '<h3 style="margin: 30px 0 16px; font-size: 16px; font-weight: 800;">' . esc_html__( 'Google Analytics', 'analytic-suite' ) . '</h3>';
+        echo '<div class="analytic-suite-cards">';
+        $this->render_card( __( 'Utilisateurs actifs', 'analytic-suite' ), $summary['active_users'] ?? 0 );
+        $this->render_card( __( 'Sessions', 'analytic-suite' ), $summary['sessions'] ?? 0 );
+        $this->render_card( __( 'Pages vues', 'analytic-suite' ), $summary['page_views'] ?? 0 );
+        $this->render_card( __( 'Nouveaux utilisateurs', 'analytic-suite' ), $summary['new_users'] ?? 0 );
+        $this->render_card( __( 'Durée moy. session', 'analytic-suite' ), $summary['avg_duration'] ?? '0s' );
+        $this->render_card( __( 'Taux de rebond', 'analytic-suite' ), ( $summary['bounce_rate'] ?? 0 ) . '%' );
+        if ( ! empty( $realtime['active_users'] ) ) {
+            $this->render_card( __( 'Utilisateurs temps réel', 'analytic-suite' ), $realtime['active_users'] );
+        }
+        echo '</div>';
+    }
+
+    /**
+     * Renders Google Analytics tables.
+     *
+     * @param array $ga GA data.
+     */
+    private function render_ga_tables( $ga ) {
+        if ( ! empty( $ga['top_pages'] ) ) {
+            $page_list = array();
+            foreach ( $ga['top_pages'] as $page ) {
+                $page_list[ $page['path'] ] = $page['views'];
+            }
+            $this->render_breakdown_table( __( 'Pages les plus visitées', 'analytic-suite' ), $page_list );
+        }
+
+        if ( ! empty( $ga['demographics']['cities'] ) ) {
+            $this->render_breakdown_table( __( 'Villes (GA4)', 'analytic-suite' ), $ga['demographics']['cities'] );
+        }
+
+        if ( ! empty( $ga['demographics']['countries'] ) ) {
+            $this->render_breakdown_table( __( 'Pays (GA4)', 'analytic-suite' ), $ga['demographics']['countries'] );
+        }
+
+        if ( ! empty( $ga['demographics']['devices'] ) ) {
+            $this->render_breakdown_table( __( 'Appareils', 'analytic-suite' ), $ga['demographics']['devices'] );
+        }
+
+        if ( ! empty( $ga['traffic_sources'] ) ) {
+            $this->render_breakdown_table( __( 'Sources de trafic', 'analytic-suite' ), $ga['traffic_sources'] );
+        }
     }
 
     /**
@@ -533,6 +596,61 @@ class Analytic_Suite_Admin {
         echo '<tr><th>' . esc_html__( 'Table user_livres', 'analytic-suite' ) . '</th><td>' . esc_html( $data['contents']['books_table'] ? __( 'Détectée', 'analytic-suite' ) : __( 'Non détectée', 'analytic-suite' ) ) . '</td></tr>';
         echo '<tr><th>' . esc_html__( 'Dernière synchronisation', 'analytic-suite' ) . '</th><td>' . esc_html( get_option( 'analytic_suite_last_sync', __( 'Jamais', 'analytic-suite' ) ) ) . '</td></tr>';
         echo '</tbody></table></div>';
+
+        $this->render_ga_settings();
+    }
+
+    /**
+     * Renders Google Analytics settings.
+     */
+    private function render_ga_settings() {
+        echo '<div class="analytic-suite-panel">';
+        echo '<h2>' . esc_html__( 'Google Analytics 4', 'analytic-suite' ) . '</h2>';
+
+        if ( isset( $_POST['analytic_suite_save_ga'] ) && check_admin_referer( 'analytic_suite_ga_settings' ) ) {
+            update_option( 'analytic_suite_ga_property_id', sanitize_text_field( wp_unslash( $_POST['ga_property_id'] ?? '' ) ) );
+            update_option( 'analytic_suite_ga_credentials', sanitize_text_field( wp_unslash( $_POST['ga_credentials'] ?? '' ) ) );
+
+            if ( ! empty( $_POST['ga_clear_cache'] ) ) {
+                $ga = new Analytic_Suite_Google_Analytics();
+                $ga->clear_cache();
+            }
+
+            echo '<div class="notice notice-success"><p>' . esc_html__( 'Paramètres enregistrés.', 'analytic-suite' ) . '</div>';
+        }
+
+        $ga = new Analytic_Suite_Google_Analytics();
+        $test = $ga->test_connection();
+
+        echo '<form method="post">';
+        wp_nonce_field( 'analytic_suite_ga_settings' );
+
+        echo '<table class="widefat"><tbody>';
+        echo '<tr><th>' . esc_html__( 'Property ID GA4', 'analytic-suite' ) . '</th>';
+        echo '<td><input type="text" name="ga_property_id" value="' . esc_attr( get_option( 'analytic_suite_ga_property_id', '' ) ) . '" class="regular-text" placeholder="XXXXXXXXX">';
+        echo '<p class="description">Ex: 1234567890 (dans GA4 > Administration > Propriété)</p></td></tr>';
+
+        echo '<tr><th>' . esc_html__( 'Clé JSON Service Account', 'analytic-suite' ) . '</th>';
+        echo '<td><textarea name="ga_credentials" rows="6" class="large-text code" placeholder=\'{"type":"service_account",...}\'>' . esc_attr( get_option( 'analytic_suite_ga_credentials', '' ) ) . '</textarea>';
+        echo '<p class="description">' . esc_html__( 'Copier le contenu du fichier JSON du compte de service Google. Donner le rôle "Lecteur" à l\'email du service account dans GA4.', 'analytic-suite' ) . '</p></td></tr>';
+
+        echo '<tr><th>' . esc_html__( 'Statut', 'analytic-suite' ) . '</th>';
+        echo '<td>';
+        if ( $test['success'] ) {
+            echo '<span style="color: #0f766e; font-weight: 700;">✓ ' . esc_html( $test['message'] ) . '</span>';
+        } else {
+            echo '<span style="color: #b42318;">✗ ' . esc_html( $test['message'] ) . '</span>';
+        }
+        echo '</td></tr>';
+
+        echo '<tr><th></th><td>';
+        echo '<label><input type="checkbox" name="ga_clear_cache" value="1"> ' . esc_html__( 'Vider le cache GA', 'analytic-suite' ) . '</label>';
+        echo '</td></tr>';
+
+        echo '</tbody></table>';
+
+        submit_button( __( 'Enregistrer', 'analytic-suite' ), 'primary', 'analytic_suite_save_ga', false );
+        echo '</form></div>';
     }
 
     /**

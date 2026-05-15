@@ -36,6 +36,13 @@ class Analytic_Suite_Dashboard_Service {
     private $contents;
 
     /**
+     * Google Analytics service.
+     *
+     * @var Analytic_Suite_Google_Analytics
+     */
+    private $ga;
+
+    /**
      * Constructor.
      *
      * @param Analytic_Suite_Order_Repository   $orders   Order repository.
@@ -46,6 +53,7 @@ class Analytic_Suite_Dashboard_Service {
         $this->orders   = $orders;
         $this->bookings = $bookings;
         $this->contents = $contents;
+        $this->ga       = new Analytic_Suite_Google_Analytics();
     }
 
     /**
@@ -84,6 +92,7 @@ class Analytic_Suite_Dashboard_Service {
         $order_metrics   = $this->orders->get_metrics( $filters );
         $booking_metrics = $this->bookings->get_metrics( $filters );
         $content_metrics = $this->contents->get_metrics( $filters );
+        $ga_summary      = $this->ga->is_configured() ? $this->ga->get_summary( $filters ) : array();
 
         return array(
             'summary'      => array(
@@ -99,12 +108,62 @@ class Analytic_Suite_Dashboard_Service {
                 'cancelled_bookings'  => $booking_metrics['cancelled_bookings'],
                 'masterclass_users'   => $content_metrics['masterclass_users'],
                 'book_users'          => $content_metrics['book_users'],
+                'ga_active_users'     => $ga_summary['active_users'] ?? 0,
+                'ga_sessions'         => $ga_summary['sessions'] ?? 0,
+                'ga_page_views'       => $ga_summary['page_views'] ?? 0,
             ),
             'orders'       => $order_metrics,
             'bookings'     => $booking_metrics,
             'contents'     => $content_metrics,
+            'ga'           => $this->get_ga_data( $filters ),
             'generated_at' => current_time( 'mysql' ),
         );
+    }
+
+    /**
+     * Gets Google Analytics data.
+     *
+     * @param array $filters Filters.
+     * @return array
+     */
+    public function get_ga_data( $filters ) {
+        if ( ! $this->ga->is_configured() ) {
+            return array(
+                'available'       => false,
+                'summary'         => array(),
+                'top_pages'       => array(),
+                'demographics'    => array(),
+                'traffic_sources' => array(),
+            );
+        }
+
+        return array(
+            'available'        => true,
+            'summary'         => $this->ga->get_summary( $filters ),
+            'top_pages'       => $this->ga->get_page_views( $filters ),
+            'demographics'   => $this->ga->get_demographics( $filters ),
+            'traffic_sources' => $this->ga->get_traffic_sources( $filters ),
+            'realtime'        => $this->ga->get_realtime_users(),
+        );
+    }
+
+    /**
+     * Gets GA configuration status.
+     *
+     * @return array
+     */
+    public function get_ga_status() {
+        return array(
+            'configured' => $this->ga->is_configured(),
+            'test'       => $this->ga->test_connection(),
+        );
+    }
+
+    /**
+     * Clears GA cache.
+     */
+    public function clear_ga_cache() {
+        $this->ga->clear_cache();
     }
 
     /**

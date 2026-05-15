@@ -46,6 +46,7 @@ class Analytic_Suite {
         require_once ANALYTIC_SUITE_PATH . 'includes/repositories/class-analytic-suite-order-repository.php';
         require_once ANALYTIC_SUITE_PATH . 'includes/repositories/class-analytic-suite-booking-repository.php';
         require_once ANALYTIC_SUITE_PATH . 'includes/repositories/class-analytic-suite-content-repository.php';
+        require_once ANALYTIC_SUITE_PATH . 'includes/services/class-analytic-suite-google-analytics.php';
         require_once ANALYTIC_SUITE_PATH . 'includes/class-analytic-suite-dashboard-service.php';
         require_once ANALYTIC_SUITE_PATH . 'admin/class-analytic-suite-admin.php';
         require_once ANALYTIC_SUITE_PATH . 'admin/class-analytic-suite-export-controller.php';
