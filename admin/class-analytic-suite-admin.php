@@ -104,6 +104,7 @@ class Analytic_Suite_Admin {
 
         echo '<div class="wrap analytic-suite">';
         echo '<h1>' . esc_html( $title ) . '</h1>';
+        $this->render_tabs( $view );
 
         $this->render_notices( $data );
         $this->render_filters( $filters, $view );
@@ -145,6 +146,36 @@ class Analytic_Suite_Admin {
             'exports'   => __( 'Exports Analytics', 'analytic-suite' ),
             'settings'  => __( 'Paramètres Analytics', 'analytic-suite' ),
         );
+    }
+
+    /**
+     * Renders top navigation tabs.
+     *
+     * @param string $current_view Current view.
+     */
+    private function render_tabs( $current_view ) {
+        $tabs = array(
+            'dashboard' => __( 'Dashboard', 'analytic-suite' ),
+            'clients'   => __( 'Clients', 'analytic-suite' ),
+            'bookings'  => __( 'Réservations', 'analytic-suite' ),
+            'orders'    => __( 'Commandes', 'analytic-suite' ),
+            'contents'  => __( 'Contenus', 'analytic-suite' ),
+            'reports'   => __( 'Rapports', 'analytic-suite' ),
+            'exports'   => __( 'Exports', 'analytic-suite' ),
+            'settings'  => __( 'Paramètres', 'analytic-suite' ),
+        );
+
+        echo '<nav class="analytic-suite-tabs" aria-label="' . esc_attr__( 'Navigation Analytics', 'analytic-suite' ) . '">';
+
+        foreach ( $tabs as $view => $label ) {
+            $page = 'dashboard' === $view ? 'analytic-suite' : 'analytic-suite-' . $view;
+            $url  = admin_url( 'admin.php?page=' . $page );
+            $class = $current_view === $view ? ' class="is-active"' : '';
+
+            echo '<a href="' . esc_url( $url ) . '"' . $class . '>' . esc_html( $label ) . '</a>';
+        }
+
+        echo '</nav>';
     }
 
     /**
