@@ -192,6 +192,7 @@ class Analytic_Suite_Dashboard_Service {
                 array_keys( $order_metrics['gender_breakdown'] ?? array() ),
                 array_keys( $booking_metrics['gender_breakdown'] ?? array() )
             ),
+            'customers' => $this->get_customer_options( $order_metrics, $booking_metrics ),
         );
     }
 
@@ -210,6 +211,32 @@ class Analytic_Suite_Dashboard_Service {
             }
         }
         return $normalized;
+    }
+
+    /**
+     * Gets customer email options from metrics.
+     *
+     * @param array $order_metrics   Order metrics.
+     * @param array $booking_metrics Booking metrics.
+     * @return array
+     */
+    private function get_customer_options( $order_metrics, $booking_metrics ) {
+        $customers = array();
+
+        if ( ! empty( $order_metrics['customer_emails'] ) ) {
+            foreach ( $order_metrics['customer_emails'] as $email ) {
+                $customers[ $email ] = $email;
+            }
+        }
+
+        if ( ! empty( $booking_metrics['customer_emails'] ) ) {
+            foreach ( $booking_metrics['customer_emails'] as $email ) {
+                $customers[ $email ] = $email;
+            }
+        }
+
+        ksort( $customers );
+        return $customers;
     }
 
     /**

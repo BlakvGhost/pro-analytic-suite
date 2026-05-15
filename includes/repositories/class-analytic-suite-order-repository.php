@@ -29,6 +29,7 @@ class Analytic_Suite_Order_Repository {
 
         $revenue          = 0.0;
         $customers        = array();
+        $customer_emails   = array();
         $customer_orders  = array();
         $country_sales    = array();
         $product_sales    = array();
@@ -62,6 +63,7 @@ class Analytic_Suite_Order_Repository {
 
             if ( '' !== $email ) {
                 $customers[ $email ] = true;
+                $customer_emails[ $email ] = true;
                 if ( ! isset( $customer_orders[ $email ] ) ) {
                     $customer_orders[ $email ] = 0;
                 }
@@ -143,6 +145,7 @@ class Analytic_Suite_Order_Repository {
             'gender_breakdown'    => $gender_breakdown,
             'product_sales'       => array_slice( array_values( $product_sales ), 0, 10 ),
             'status_breakdown'    => $status_breakdown,
+            'customer_emails'     => array_keys( $customer_emails ),
         );
     }
 
@@ -254,6 +257,7 @@ class Analytic_Suite_Order_Repository {
             'gender_breakdown'    => array(),
             'product_sales'       => array(),
             'status_breakdown'    => array(),
+            'customer_emails'     => array(),
         );
     }
 }

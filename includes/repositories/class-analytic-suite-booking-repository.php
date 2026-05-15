@@ -166,6 +166,7 @@ class Analytic_Suite_Booking_Repository {
             'duration_summary'   => $this->get_duration_summary( $duration_breakdown ),
             'country_breakdown'  => array_slice( $country_breakdown, 0, 10, true ),
             'gender_breakdown'   => $gender_breakdown,
+            'customer_emails'    => array_keys( $customers ),
         );
     }
 
@@ -842,6 +843,7 @@ class Analytic_Suite_Booking_Repository {
             ),
             'country_breakdown'  => array(),
             'gender_breakdown'   => array(),
+            'customer_emails'    => array(),
         );
     }
 }

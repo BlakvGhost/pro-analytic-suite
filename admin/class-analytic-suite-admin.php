@@ -276,7 +276,12 @@ class Analytic_Suite_Admin {
             $this->build_options_array( $filter_options['genders'], true )
         );
 
-        $this->render_input( 'customer', __( 'Client', 'analytic-suite' ), $filters['customer'], 'text' );
+        $this->render_select(
+            'customer',
+            __( 'Client', 'analytic-suite' ),
+            $filters['customer'],
+            $this->build_options_array( $filter_options['customers'] ?? array(), true )
+        );
 
         submit_button( __( 'Filtrer', 'analytic-suite' ), 'primary', '', false );
         echo '</form>';
