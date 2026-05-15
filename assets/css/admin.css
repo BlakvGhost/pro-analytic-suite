@@ -290,6 +290,21 @@
     padding: 0;
 }
 
+.analytic-suite-export-actions {
+    display: flex;
+    /* flex-wrap: wrap; */
+    gap: 10px;
+    padding: 0 16px 16px;
+}
+
+.analytic-suite-export-actions form {
+    padding: 0;
+}
+
+.analytic-suite-export-actions .button {
+    min-height: 40px;
+}
+
 .analytic-suite-panel .widefat {
     border: 0;
     box-shadow: none;

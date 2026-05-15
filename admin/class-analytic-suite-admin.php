@@ -409,17 +409,33 @@ class Analytic_Suite_Admin {
     private function render_exports( $filters ) {
         echo '<div class="analytic-suite-panel">';
         echo '<h2>' . esc_html__( 'Exporter les données', 'analytic-suite' ) . '</h2>';
-        echo '<p>' . esc_html__( 'CSV est disponible dans cette première version. PDF et XLSX pourront être ajoutés avec une librairie dédiée.', 'analytic-suite' ) . '</p>';
+        echo '<p>' . esc_html__( 'Téléchargez la synthèse avec les filtres actuellement appliqués.', 'analytic-suite' ) . '</p>';
+        echo '<div class="analytic-suite-export-actions">';
+        $this->render_export_form( 'analytic_suite_export_csv', 'analytic_suite_export_csv', __( 'Télécharger CSV', 'analytic-suite' ), $filters );
+        $this->render_export_form( 'analytic_suite_export_excel', 'analytic_suite_export_excel', __( 'Télécharger Excel', 'analytic-suite' ), $filters );
+        $this->render_export_form( 'analytic_suite_export_pdf', 'analytic_suite_export_pdf', __( 'Télécharger PDF', 'analytic-suite' ), $filters );
+        echo '</div></div>';
+    }
+
+    /**
+     * Renders an export form.
+     *
+     * @param string $action  Admin-post action.
+     * @param string $nonce   Nonce action.
+     * @param string $label   Button label.
+     * @param array  $filters Current filters.
+     */
+    private function render_export_form( $action, $nonce, $label, $filters ) {
         echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '">';
-        echo '<input type="hidden" name="action" value="analytic_suite_export_csv">';
-        wp_nonce_field( 'analytic_suite_export_csv' );
+        echo '<input type="hidden" name="action" value="' . esc_attr( $action ) . '">';
+        wp_nonce_field( $nonce );
 
         foreach ( $filters as $key => $value ) {
             echo '<input type="hidden" name="' . esc_attr( $key ) . '" value="' . esc_attr( $value ) . '">';
         }
 
-        submit_button( __( 'Télécharger le CSV', 'analytic-suite' ), 'primary', 'submit', false );
-        echo '</form></div>';
+        submit_button( $label, 'primary', 'submit', false );
+        echo '</form>';
     }
 
     /**

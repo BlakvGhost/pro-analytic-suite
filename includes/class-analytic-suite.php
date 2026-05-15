@@ -32,6 +32,8 @@ class Analytic_Suite {
         add_action( 'admin_menu', array( $this, 'register_admin_menu' ) );
         add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_admin_assets' ) );
         add_action( 'admin_post_analytic_suite_export_csv', array( $this, 'export_csv' ) );
+        add_action( 'admin_post_analytic_suite_export_excel', array( $this, 'export_excel' ) );
+        add_action( 'admin_post_analytic_suite_export_pdf', array( $this, 'export_pdf' ) );
         add_action( 'analytic_suite_daily_sync', array( $this, 'run_daily_sync' ) );
         add_filter( 'plugin_action_links_' . plugin_basename( ANALYTIC_SUITE_FILE ), array( $this, 'add_plugin_action_links' ) );
     }
@@ -122,6 +124,22 @@ class Analytic_Suite {
     public function export_csv() {
         $controller = new Analytic_Suite_Export_Controller( $this->get_dashboard_service() );
         $controller->export_csv();
+    }
+
+    /**
+     * Handles Excel exports.
+     */
+    public function export_excel() {
+        $controller = new Analytic_Suite_Export_Controller( $this->get_dashboard_service() );
+        $controller->export_excel();
+    }
+
+    /**
+     * Handles PDF exports.
+     */
+    public function export_pdf() {
+        $controller = new Analytic_Suite_Export_Controller( $this->get_dashboard_service() );
+        $controller->export_pdf();
     }
 
     /**
