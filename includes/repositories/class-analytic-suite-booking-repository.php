@@ -32,20 +32,53 @@ class Analytic_Suite_Booking_Repository {
         $columns = $this->get_columns( $table );
         $rows    = $this->get_booking_rows( $table, $columns, $filters );
 
-        $total             = count( $rows );
+        $total             = 0;
         $cancelled         = 0;
         $customers         = array();
         $status_breakdown  = array();
         $type_breakdown    = array();
         $duration_breakdown = array();
         $country_breakdown = array();
+        $gender_breakdown  = array();
 
         foreach ( $rows as $row ) {
             $status   = $this->value_from_columns( $row, array( 'status', 'booking_status', 'event_status' ) );
             $type     = $this->value_from_columns( $row, array( 'event_type', 'booking_type', 'calendar_event_id', 'event_id' ) );
-            $duration = $this->value_from_columns( $row, array( 'duration', 'duration_minutes', 'meeting_duration' ) );
+            $duration = $this->value_from_columns( $row, array( 'slot_minutes', 'duration', 'duration_minutes', 'meeting_duration' ) );
             $email    = strtolower( (string) $this->value_from_columns( $row, array( 'email', 'invitee_email', 'customer_email' ) ) );
             $country  = $this->value_from_columns( $row, array( 'country', 'invitee_country', 'customer_country' ) );
+            $source_id = absint( $this->value_from_columns( $row, array( 'source_id', 'order_id' ) ) );
+            $gender    = '';
+
+            if ( $source_id && function_exists( 'wc_get_order' ) ) {
+                $order = wc_get_order( $source_id );
+
+                if ( $order instanceof WC_Order ) {
+                    if ( '' === $email ) {
+                        $email = strtolower( (string) $order->get_billing_email() );
+                    }
+
+                    if ( '' === $country ) {
+                        $country = $order->get_billing_country();
+                    }
+
+                    $gender = $this->normalize_gender( $order->get_meta( 'gender_' ) );
+                }
+            }
+
+            if ( ! empty( $filters['gender'] ) && ! $this->gender_matches( $gender, $filters['gender'] ) ) {
+                continue;
+            }
+
+            if ( ! empty( $filters['country'] ) && strtolower( (string) $country ) !== strtolower( (string) $filters['country'] ) ) {
+                continue;
+            }
+
+            if ( ! empty( $filters['customer'] ) && is_email( $filters['customer'] ) && $email !== strtolower( sanitize_email( $filters['customer'] ) ) ) {
+                continue;
+            }
+
+            $total++;
 
             if ( false !== strpos( strtolower( (string) $status ), 'cancel' ) ) {
                 $cancelled++;
@@ -65,12 +98,17 @@ class Analytic_Suite_Booking_Repository {
             if ( $country ) {
                 $this->increment_breakdown( $country_breakdown, $country );
             }
+
+            if ( $gender ) {
+                $this->increment_breakdown( $gender_breakdown, $gender );
+            }
         }
 
         arsort( $status_breakdown );
         arsort( $type_breakdown );
         arsort( $duration_breakdown );
         arsort( $country_breakdown );
+        arsort( $gender_breakdown );
 
         return array(
             'available'          => true,
@@ -84,6 +122,7 @@ class Analytic_Suite_Booking_Repository {
             'type_breakdown'     => array_slice( $type_breakdown, 0, 10, true ),
             'duration_breakdown' => array_slice( $duration_breakdown, 0, 10, true ),
             'country_breakdown'  => array_slice( $country_breakdown, 0, 10, true ),
+            'gender_breakdown'   => $gender_breakdown,
         );
     }
 
@@ -94,6 +133,12 @@ class Analytic_Suite_Booking_Repository {
      */
     private function find_booking_table() {
         global $wpdb;
+
+        $known_table = $wpdb->prefix . 'fcal_bookings';
+
+        if ( $this->table_exists( $known_table ) ) {
+            return $known_table;
+        }
 
         $like   = $wpdb->esc_like( $wpdb->prefix . 'fluent' ) . '%booking%';
         $tables = $wpdb->get_col( $wpdb->prepare( 'SHOW TABLES LIKE %s', $like ) );
@@ -113,6 +158,20 @@ class Analytic_Suite_Booking_Repository {
         }
 
         return $tables[0];
+    }
+
+    /**
+     * Checks if a table exists.
+     *
+     * @param string $table Table name.
+     * @return bool
+     */
+    private function table_exists( $table ) {
+        global $wpdb;
+
+        $found = $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table ) );
+
+        return $found === $table;
     }
 
     /**
@@ -159,7 +218,7 @@ class Analytic_Suite_Booking_Repository {
             $values[] = $filters['status'];
         }
 
-        $duration_column = $this->first_existing_column( $columns, array( 'duration', 'duration_minutes', 'meeting_duration' ) );
+        $duration_column = $this->first_existing_column( $columns, array( 'slot_minutes', 'duration', 'duration_minutes', 'meeting_duration' ) );
         if ( $duration_column && ! empty( $filters['duration'] ) ) {
             $where[]  = '`' . esc_sql( $duration_column ) . '` = %d';
             $values[] = absint( $filters['duration'] );
@@ -181,6 +240,12 @@ class Analytic_Suite_Booking_Repository {
         if ( $email_column && ! empty( $filters['customer'] ) && is_email( $filters['customer'] ) ) {
             $where[]  = '`' . esc_sql( $email_column ) . '` = %s';
             $values[] = sanitize_email( $filters['customer'] );
+        }
+
+        $source_column = $this->first_existing_column( $columns, array( 'source_id', 'order_id' ) );
+        if ( $source_column && ! empty( $filters['customer'] ) && ! is_email( $filters['customer'] ) ) {
+            $where[]  = '`' . esc_sql( $source_column ) . '` = %d';
+            $values[] = absint( $filters['customer'] );
         }
 
         $order_column = $this->first_existing_column( $columns, array( 'id', 'created_at', 'start_time', 'booking_date' ) );
@@ -239,6 +304,46 @@ class Analytic_Suite_Booking_Repository {
     }
 
     /**
+     * Normalizes the site's gender metadata.
+     *
+     * @param string $gender Raw gender.
+     * @return string
+     */
+    private function normalize_gender( $gender ) {
+        $gender = strtolower( trim( (string) $gender ) );
+
+        if ( 'monsieur' === $gender ) {
+            return __( 'Homme', 'analytic-suite' );
+        }
+
+        if ( 'madame' === $gender ) {
+            return __( 'Femme', 'analytic-suite' );
+        }
+
+        return '' !== $gender ? ucfirst( $gender ) : '';
+    }
+
+    /**
+     * Checks if a normalized gender matches a request filter.
+     *
+     * @param string $gender Normalized gender.
+     * @param string $filter Raw filter.
+     * @return bool
+     */
+    private function gender_matches( $gender, $filter ) {
+        $gender = strtolower( trim( (string) $gender ) );
+        $filter = strtolower( trim( (string) $filter ) );
+
+        if ( 'monsieur' === $filter ) {
+            $filter = strtolower( __( 'Homme', 'analytic-suite' ) );
+        } elseif ( 'madame' === $filter ) {
+            $filter = strtolower( __( 'Femme', 'analytic-suite' ) );
+        }
+
+        return $gender === $filter;
+    }
+
+    /**
      * Empty response when FluentBooking is not available.
      *
      * @return array
@@ -256,6 +361,7 @@ class Analytic_Suite_Booking_Repository {
             'type_breakdown'     => array(),
             'duration_breakdown' => array(),
             'country_breakdown'  => array(),
+            'gender_breakdown'   => array(),
         );
     }
 }

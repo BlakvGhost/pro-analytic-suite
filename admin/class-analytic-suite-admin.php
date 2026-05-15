@@ -187,8 +187,10 @@ class Analytic_Suite_Admin {
         $this->render_input( 'date_to', __( 'Au', 'analytic-suite' ), $filters['date_to'], 'date' );
         $this->render_input( 'country', __( 'Pays', 'analytic-suite' ), $filters['country'], 'text' );
         $this->render_input( 'status', __( 'Statut', 'analytic-suite' ), $filters['status'], 'text' );
+        $this->render_input( 'booking_type', __( 'Type réservation', 'analytic-suite' ), $filters['booking_type'], 'text' );
         $this->render_input( 'duration', __( 'Durée', 'analytic-suite' ), $filters['duration'] ? $filters['duration'] : '', 'number' );
         $this->render_input( 'product', __( 'Produit ID', 'analytic-suite' ), $filters['product'] ? $filters['product'] : '', 'number' );
+        $this->render_input( 'gender', __( 'Civilité', 'analytic-suite' ), $filters['gender'], 'text' );
         $this->render_input( 'customer', __( 'Client', 'analytic-suite' ), $filters['customer'], 'text' );
 
         submit_button( __( 'Filtrer', 'analytic-suite' ), 'primary', '', false );
@@ -264,6 +266,8 @@ class Analytic_Suite_Admin {
         echo '</div>';
 
         $this->render_breakdown_table( __( 'Réservations par pays', 'analytic-suite' ), $data['bookings']['country_breakdown'] );
+        $this->render_breakdown_table( __( 'Civilité commandes', 'analytic-suite' ), $data['orders']['gender_breakdown'] );
+        $this->render_breakdown_table( __( 'Civilité réservations', 'analytic-suite' ), $data['bookings']['gender_breakdown'] );
     }
 
     /**

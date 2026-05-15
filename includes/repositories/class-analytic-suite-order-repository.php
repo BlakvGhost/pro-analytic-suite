@@ -33,6 +33,7 @@ class Analytic_Suite_Order_Repository {
         $country_sales    = array();
         $product_sales    = array();
         $status_breakdown = array();
+        $gender_breakdown = array();
 
         foreach ( $orders as $order ) {
             if ( ! $order instanceof WC_Order ) {
@@ -43,6 +44,7 @@ class Analytic_Suite_Order_Repository {
             $status  = $order->get_status();
             $country = $order->get_billing_country();
             $email   = strtolower( (string) $order->get_billing_email() );
+            $gender  = $this->normalize_gender( $order->get_meta( 'gender_' ) );
 
             $revenue += $total;
 
@@ -59,6 +61,10 @@ class Analytic_Suite_Order_Repository {
             }
 
             $status_breakdown[ $status ] = isset( $status_breakdown[ $status ] ) ? $status_breakdown[ $status ] + 1 : 1;
+
+            if ( '' !== $gender ) {
+                $gender_breakdown[ $gender ] = isset( $gender_breakdown[ $gender ] ) ? $gender_breakdown[ $gender ] + 1 : 1;
+            }
 
             foreach ( $order->get_items() as $item ) {
                 $product_id = $item->get_product_id();
@@ -89,6 +95,7 @@ class Analytic_Suite_Order_Repository {
         );
 
         arsort( $country_sales );
+        arsort( $gender_breakdown );
         uasort(
             $product_sales,
             function ( $left, $right ) {
@@ -106,6 +113,7 @@ class Analytic_Suite_Order_Repository {
             'recurring_customers' => $recurring_customers,
             'retention_rate'      => count( $customers ) > 0 ? round( ( $recurring_customers / count( $customers ) ) * 100, 2 ) : 0,
             'country_sales'       => array_slice( $country_sales, 0, 10, true ),
+            'gender_breakdown'    => $gender_breakdown,
             'product_sales'       => array_slice( array_values( $product_sales ), 0, 10 ),
             'status_breakdown'    => $status_breakdown,
         );
@@ -145,7 +153,37 @@ class Analytic_Suite_Order_Repository {
             $args['billing_email'] = sanitize_email( $filters['customer'] );
         }
 
+        if ( ! empty( $filters['gender'] ) ) {
+            $args['meta_query'] = array(
+                array(
+                    'key'     => 'gender_',
+                    'value'   => sanitize_text_field( $filters['gender'] ),
+                    'compare' => '=',
+                ),
+            );
+        }
+
         return $args;
+    }
+
+    /**
+     * Normalizes the site's gender metadata.
+     *
+     * @param string $gender Raw gender.
+     * @return string
+     */
+    private function normalize_gender( $gender ) {
+        $gender = strtolower( trim( (string) $gender ) );
+
+        if ( 'monsieur' === $gender ) {
+            return __( 'Homme', 'analytic-suite' );
+        }
+
+        if ( 'madame' === $gender ) {
+            return __( 'Femme', 'analytic-suite' );
+        }
+
+        return '' !== $gender ? ucfirst( $gender ) : '';
     }
 
     /**
@@ -163,6 +201,7 @@ class Analytic_Suite_Order_Repository {
             'recurring_customers' => 0,
             'retention_rate'      => 0,
             'country_sales'       => array(),
+            'gender_breakdown'    => array(),
             'product_sales'       => array(),
             'status_breakdown'    => array(),
         );

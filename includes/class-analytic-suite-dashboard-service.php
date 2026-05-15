@@ -57,6 +57,7 @@ class Analytic_Suite_Dashboard_Service {
             'booking_type' => isset( $source['booking_type'] ) ? sanitize_text_field( wp_unslash( $source['booking_type'] ) ) : '',
             'duration'     => isset( $source['duration'] ) ? absint( wp_unslash( $source['duration'] ) ) : 0,
             'product'      => isset( $source['product'] ) ? absint( wp_unslash( $source['product'] ) ) : 0,
+            'gender'       => isset( $source['gender'] ) ? sanitize_text_field( wp_unslash( $source['gender'] ) ) : '',
             'customer'     => isset( $source['customer'] ) ? sanitize_text_field( wp_unslash( $source['customer'] ) ) : '',
         );
 
