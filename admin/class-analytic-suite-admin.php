@@ -45,13 +45,12 @@ class Analytic_Suite_Admin {
         );
 
         $pages = array(
-            'analytic-suite'              => __( 'Dashboard', 'analytic-suite' ),
-            'analytic-suite-clients'      => __( 'Clients', 'analytic-suite' ),
-            'analytic-suite-bookings'     => __( 'Réservations', 'analytic-suite' ),
-            'analytic-suite-orders'       => __( 'Commandes', 'analytic-suite' ),
-            'analytic-suite-reports'      => __( 'Rapports', 'analytic-suite' ),
-            'analytic-suite-exports'      => __( 'Exports', 'analytic-suite' ),
-            'analytic-suite-settings'     => __( 'Paramètres', 'analytic-suite' ),
+            'analytic-suite-clients'  => __( 'Clients', 'analytic-suite' ),
+            'analytic-suite-bookings' => __( 'Réservations', 'analytic-suite' ),
+            'analytic-suite-orders'   => __( 'Commandes', 'analytic-suite' ),
+            'analytic-suite-reports'  => __( 'Rapports', 'analytic-suite' ),
+            'analytic-suite-exports'  => __( 'Exports', 'analytic-suite' ),
+            'analytic-suite-settings' => __( 'Paramètres', 'analytic-suite' ),
         );
 
         foreach ( $pages as $slug => $title ) {
