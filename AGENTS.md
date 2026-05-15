@@ -1,45 +1,43 @@
 # Repository Guidelines
 
-## Project Structure & Module Organization
+## Structure
 
-This repository is the early scaffold for a WordPress analytics plugin, described in `README.md` as Pro Analytics Suite. It currently contains project requirements only; add implementation files at the plugin root using standard WordPress plugin conventions.
+```
+analytic-suite.php     # Plugin bootstrap, defines ANALYTIC_SUITE_* constants
+includes/              # Core: activator, deactivator, main class
+admin/                 # Admin UI: menu, pages, export controller
+assets/{js,css}/       # Frontend assets
+tests/                 # Test fixtures (empty)
+```
 
-Recommended layout as the plugin grows:
+Repositories exist under `includes/repositories/`: Order, Booking, Content.
 
-- `analytic-suite.php`: main plugin bootstrap and metadata header.
-- `includes/`: PHP services, data sync, repositories, cron jobs, and shared helpers.
-- `admin/`: WordPress admin pages for Dashboard, Clients, Reservations, Orders, Reports, Exports, and Settings.
-- `assets/`: JavaScript, CSS, images, and chart assets for admin screens.
-- `tests/`: automated tests and fixtures when test tooling is introduced.
+## Dev Commands
 
-Keep WooCommerce and FluentBooking integrations behind service classes so analytics calculations can be tested independently.
+- `php -l path/to/file.php` - syntax check
+- `git status --short` - local changes
+- `wp plugin activate analytic-suite` - activate (requires WP-CLI + WordPress)
 
-## Build, Test, and Development Commands
+No package manager yet. Add Composer/npm commands here when introduced.
 
-No package manager, build script, or test runner is currently committed. Current commands:
+## Naming & Style
 
-- `git status --short`: check local changes.
-- `php -l path/to/file.php`: lint a PHP file once source files exist.
-- `wp plugin activate analytic-suite`: activate the plugin when WP-CLI is available.
+- Prefix: `analytic_suite_` for functions, hooks, options, transients, tables
+- Classes: `Analytic_Suite_*` (CamelCase)
+- Indentation: 4 spaces
+- Always: sanitized input, escaped output, nonce checks for admin actions
 
-If Composer, npm, or a Makefile is added later, document reproducible root-level commands here.
+Keep WooCommerce/FluentBooking integrations behind service classes for testability.
 
-## Coding Style & Naming Conventions
+## Testing
 
-Use WordPress PHP conventions: 4-space indentation, snake_case functions, escaped output, sanitized input, and nonce checks for admin actions. Prefix global functions, hooks, options, transients, cron events, and tables with `analytic_suite_`.
+Until a test framework is added:
+- `php -l` for syntax validation
+- Manual testing on local WordPress instance
 
-Prefer small domain classes, for example `Analytic_Suite_Order_Repository` or `Analytic_Suite_Booking_Sync`. Keep admin UI separate from collection and aggregation logic.
+## Security
 
-## Testing Guidelines
-
-Add tests for revenue, recurrence, cancellations, filters, and exports. Name test files after the behavior, such as `OrderAnalyticsTest.php` or `BookingCancellationTest.php`. Until a framework is committed, verify PHP syntax with `php -l` and manually test activation, admin pages, filters, and exports locally.
-
-## Commit & Pull Request Guidelines
-
-Git history currently contains only `init project`, so no detailed convention is established. Use short imperative commits such as `Add analytics bootstrap`.
-
-Pull requests should include a concise description, affected WordPress/WooCommerce/FluentBooking areas, manual test notes, screenshots for admin UI changes, and database or cron changes.
-
-## Security & Configuration Tips
-
-Never commit production credentials, customer data, or generated reports containing personal data. Use WordPress capabilities for admin access, sanitize request data, escape rendered values, and validate export permissions before generating CSV, XLSX, or PDF files.
+- Never commit credentials, customer data, or generated reports
+- Use WordPress capabilities for access control
+- Sanitize `$_POST`/`$_GET`, escape on output
+- Validate export permissions before CSV/XLSX/PDF generation
