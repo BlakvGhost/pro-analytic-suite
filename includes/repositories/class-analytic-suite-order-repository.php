@@ -34,6 +34,9 @@ class Analytic_Suite_Order_Repository {
         $product_sales    = array();
         $status_breakdown = array();
         $gender_breakdown = array();
+        $customer_products = array();
+        $cancelled_orders = 0;
+        $revenue_order_count = 0;
 
         foreach ( $orders as $order ) {
             if ( ! $order instanceof WC_Order ) {
@@ -46,7 +49,16 @@ class Analytic_Suite_Order_Repository {
             $email   = strtolower( (string) $order->get_billing_email() );
             $gender  = $this->normalize_gender( $order->get_meta( 'gender_' ) );
 
-            $revenue += $total;
+            $is_revenue_order = ! in_array( $status, array( 'cancelled', 'failed', 'refunded' ), true );
+
+            if ( 'cancelled' === $status ) {
+                $cancelled_orders++;
+            }
+
+            if ( $is_revenue_order ) {
+                $revenue += $total;
+                $revenue_order_count++;
+            }
 
             if ( '' !== $email ) {
                 $customers[ $email ] = true;
@@ -71,6 +83,18 @@ class Analytic_Suite_Order_Repository {
                 $name       = $item->get_name();
                 $key        = $product_id ? (string) $product_id : $name;
 
+                if ( '' !== $email && $is_revenue_order ) {
+                    if ( ! isset( $customer_products[ $email ] ) ) {
+                        $customer_products[ $email ] = array();
+                    }
+
+                    if ( ! isset( $customer_products[ $email ][ $key ] ) ) {
+                        $customer_products[ $email ][ $key ] = 0;
+                    }
+
+                    $customer_products[ $email ][ $key ] += (int) $item->get_quantity();
+                }
+
                 if ( ! isset( $product_sales[ $key ] ) ) {
                     $product_sales[ $key ] = array(
                         'name'     => $name,
@@ -93,6 +117,7 @@ class Analytic_Suite_Order_Repository {
                 }
             )
         );
+        $repeat_product_customers = $this->count_repeat_product_customers( $customer_products );
 
         arsort( $country_sales );
         arsort( $gender_breakdown );
@@ -107,10 +132,12 @@ class Analytic_Suite_Order_Repository {
         return array(
             'available'           => true,
             'total_orders'        => $total_orders,
+            'cancelled_orders'    => $cancelled_orders,
             'revenue'             => round( $revenue, 2 ),
-            'average_order_value' => $total_orders > 0 ? round( $revenue / $total_orders, 2 ) : 0,
+            'average_order_value' => $revenue_order_count > 0 ? round( $revenue / $revenue_order_count, 2 ) : 0,
             'unique_customers'    => count( $customers ),
             'recurring_customers' => $recurring_customers,
+            'repeat_product_customers' => $repeat_product_customers,
             'retention_rate'      => count( $customers ) > 0 ? round( ( $recurring_customers / count( $customers ) ) * 100, 2 ) : 0,
             'country_sales'       => array_slice( $country_sales, 0, 10, true ),
             'gender_breakdown'    => $gender_breakdown,
@@ -187,6 +214,27 @@ class Analytic_Suite_Order_Repository {
     }
 
     /**
+     * Counts customers who bought the same product more than once.
+     *
+     * @param array $customer_products Products grouped by customer.
+     * @return int
+     */
+    private function count_repeat_product_customers( $customer_products ) {
+        $count = 0;
+
+        foreach ( $customer_products as $products ) {
+            foreach ( $products as $quantity ) {
+                if ( $quantity > 1 ) {
+                    $count++;
+                    break;
+                }
+            }
+        }
+
+        return $count;
+    }
+
+    /**
      * Empty response when WooCommerce is not available.
      *
      * @return array
@@ -195,10 +243,12 @@ class Analytic_Suite_Order_Repository {
         return array(
             'available'           => false,
             'total_orders'        => 0,
+            'cancelled_orders'    => 0,
             'revenue'             => 0,
             'average_order_value' => 0,
             'unique_customers'    => 0,
             'recurring_customers' => 0,
+            'repeat_product_customers' => 0,
             'retention_rate'      => 0,
             'country_sales'       => array(),
             'gender_breakdown'    => array(),

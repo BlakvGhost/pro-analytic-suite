@@ -187,6 +187,7 @@ class Analytic_Suite_Admin {
         $this->render_input( 'country', __( 'Pays', 'analytic-suite' ), $filters['country'], 'text' );
         $this->render_input( 'status', __( 'Statut', 'analytic-suite' ), $filters['status'], 'text' );
         $this->render_input( 'booking_type', __( 'Type réservation', 'analytic-suite' ), $filters['booking_type'], 'text' );
+        $this->render_input( 'exclude_booking_type', __( 'Exclure type', 'analytic-suite' ), $filters['exclude_booking_type'], 'text' );
         $this->render_input( 'duration', __( 'Durée', 'analytic-suite' ), $filters['duration'] ? $filters['duration'] : '', 'number' );
         $this->render_input( 'product', __( 'Produit ID', 'analytic-suite' ), $filters['product'] ? $filters['product'] : '', 'number' );
         $this->render_input( 'gender', __( 'Civilité', 'analytic-suite' ), $filters['gender'], 'text' );
@@ -234,20 +235,29 @@ class Analytic_Suite_Admin {
      */
     private function render_dashboard( $data ) {
         $summary = $data['summary'];
+        $top_booking_country = $this->get_top_breakdown_label( $data['bookings']['country_breakdown'] );
+        $top_booking_gender  = $this->get_top_breakdown_label( $data['bookings']['gender_breakdown'] );
 
         echo '<div class="analytic-suite-cards">';
-        $this->render_card( __( 'Commandes', 'analytic-suite' ), $summary['orders'] );
+        $this->render_card( __( 'Nb clients uniques', 'analytic-suite' ), $summary['unique_customers'] );
+        $this->render_card( __( 'Nb paniers annulés', 'analytic-suite' ), $summary['cancelled_carts'] );
         $this->render_card( __( 'Réservations', 'analytic-suite' ), $summary['bookings'] );
-        $this->render_card( __( 'Chiffre d’affaires', 'analytic-suite' ), $this->format_price( $summary['revenue'] ) );
+        $this->render_card( __( 'Réservations annulées', 'analytic-suite' ), $summary['cancelled_bookings'] . ' (' . $summary['cancellation_rate'] . '%)' );
+        $this->render_card( __( 'Clients produits répétés', 'analytic-suite' ), $summary['repeat_product_customers'] );
         $this->render_card( __( 'Panier moyen', 'analytic-suite' ), $this->format_price( $summary['average_order_value'] ) );
-        $this->render_card( __( 'Clients uniques', 'analytic-suite' ), $summary['unique_customers'] );
-        $this->render_card( __( 'Taux d’annulation', 'analytic-suite' ), $summary['cancellation_rate'] . '%' );
+        $this->render_card( __( 'Pays #1 réservations', 'analytic-suite' ), $top_booking_country );
+        $this->render_card( __( 'Civilité #1 réservations', 'analytic-suite' ), $top_booking_gender );
+        $this->render_card( __( 'Durée dominante', 'analytic-suite' ), $data['bookings']['duration_summary']['leader'] );
         echo '</div>';
 
         echo '<div class="analytic-suite-grid">';
-        $this->render_breakdown_table( __( 'Ventes par pays', 'analytic-suite' ), $data['orders']['country_sales'] );
-        $this->render_breakdown_table( __( 'Types de réservation', 'analytic-suite' ), $data['bookings']['type_breakdown'] );
+        $this->render_breakdown_table( __( 'Dîners / Sessions / Diagnostics', 'analytic-suite' ), $data['bookings']['category_breakdown'] );
+        $this->render_breakdown_table( __( 'Types de réservation détaillés', 'analytic-suite' ), $data['bookings']['type_breakdown'] );
         $this->render_breakdown_table( __( 'Durées de réservation', 'analytic-suite' ), $data['bookings']['duration_breakdown'] );
+        $this->render_breakdown_table( __( 'Comparaison 30 min / 1h', 'analytic-suite' ), $this->format_duration_summary( $data['bookings']['duration_summary'] ) );
+        $this->render_breakdown_table( __( 'Pays avec le plus de réservations', 'analytic-suite' ), $data['bookings']['country_breakdown'] );
+        $this->render_breakdown_table( __( 'Civilité avec le plus de réservations', 'analytic-suite' ), $data['bookings']['gender_breakdown'] );
+        $this->render_breakdown_table( __( 'Statuts réservations', 'analytic-suite' ), $data['bookings']['status_breakdown'] );
         $this->render_breakdown_table( __( 'Statuts commandes', 'analytic-suite' ), $data['orders']['status_breakdown'] );
         echo '</div>';
     }
@@ -261,6 +271,7 @@ class Analytic_Suite_Admin {
         echo '<div class="analytic-suite-cards">';
         $this->render_card( __( 'Clients uniques', 'analytic-suite' ), $data['summary']['unique_customers'] );
         $this->render_card( __( 'Clients récurrents', 'analytic-suite' ), $data['summary']['recurring_customers'] );
+        $this->render_card( __( 'Clients ayant repris un produit', 'analytic-suite' ), $data['summary']['repeat_product_customers'] );
         $this->render_card( __( 'Taux de fidélisation', 'analytic-suite' ), $data['orders']['retention_rate'] . '%' );
         echo '</div>';
 
@@ -280,11 +291,14 @@ class Analytic_Suite_Admin {
         $this->render_card( __( 'Validées', 'analytic-suite' ), $data['bookings']['confirmed_bookings'] );
         $this->render_card( __( 'Annulées', 'analytic-suite' ), $data['bookings']['cancelled_bookings'] );
         $this->render_card( __( 'Taux d’annulation', 'analytic-suite' ), $data['bookings']['cancellation_rate'] . '%' );
+        $this->render_card( __( 'Durée dominante', 'analytic-suite' ), $data['bookings']['duration_summary']['leader'] );
         echo '</div>';
 
         echo '<div class="analytic-suite-grid">';
+        $this->render_breakdown_table( __( 'Dîners / Sessions / Diagnostics', 'analytic-suite' ), $data['bookings']['category_breakdown'] );
         $this->render_breakdown_table( __( 'Types de réservation', 'analytic-suite' ), $data['bookings']['type_breakdown'] );
         $this->render_breakdown_table( __( 'Durées', 'analytic-suite' ), $data['bookings']['duration_breakdown'] );
+        $this->render_breakdown_table( __( 'Comparaison 30 min / 1h', 'analytic-suite' ), $this->format_duration_summary( $data['bookings']['duration_summary'] ) );
         $this->render_breakdown_table( __( 'Statuts', 'analytic-suite' ), $data['bookings']['status_breakdown'] );
         echo '</div>';
     }
@@ -297,6 +311,7 @@ class Analytic_Suite_Admin {
     private function render_orders( $data ) {
         echo '<div class="analytic-suite-cards">';
         $this->render_card( __( 'Total commandes', 'analytic-suite' ), $data['orders']['total_orders'] );
+        $this->render_card( __( 'Paniers annulés', 'analytic-suite' ), $data['orders']['cancelled_orders'] );
         $this->render_card( __( 'Chiffre d’affaires', 'analytic-suite' ), $this->format_price( $data['orders']['revenue'] ) );
         $this->render_card( __( 'Panier moyen', 'analytic-suite' ), $this->format_price( $data['orders']['average_order_value'] ) );
         echo '</div>';
@@ -382,6 +397,37 @@ class Analytic_Suite_Admin {
             echo '<tr><td>' . esc_html( $label ) . '</td><td>' . esc_html( $value ) . '</td></tr>';
         }
         echo '</tbody></table></div>';
+    }
+
+    /**
+     * Gets the first label from a sorted breakdown.
+     *
+     * @param array $items Items.
+     * @return string
+     */
+    private function get_top_breakdown_label( $items ) {
+        if ( empty( $items ) ) {
+            return __( 'Aucune donnée', 'analytic-suite' );
+        }
+
+        $label = key( $items );
+        $value = current( $items );
+
+        return $label . ' (' . $value . ')';
+    }
+
+    /**
+     * Formats duration summary for display.
+     *
+     * @param array $summary Summary.
+     * @return array
+     */
+    private function format_duration_summary( $summary ) {
+        return array(
+            __( 'Sessions de 30 min', 'analytic-suite' ) => isset( $summary['30 min'] ) ? $summary['30 min'] : 0,
+            __( 'Sessions de 1h', 'analytic-suite' )     => isset( $summary['1h'] ) ? $summary['1h'] : 0,
+            __( 'Plus fréquent', 'analytic-suite' )      => isset( $summary['leader'] ) ? $summary['leader'] : __( 'Égalité', 'analytic-suite' ),
+        );
     }
 
     /**

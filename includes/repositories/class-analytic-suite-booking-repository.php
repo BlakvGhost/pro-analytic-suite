@@ -15,6 +15,13 @@ if ( ! defined( 'ABSPATH' ) ) {
 class Analytic_Suite_Booking_Repository {
 
     /**
+     * Cached FluentBooking event labels.
+     *
+     * @var array
+     */
+    private $event_labels = array();
+
+    /**
      * Gets booking metrics.
      *
      * @param array $filters Filters.
@@ -37,6 +44,7 @@ class Analytic_Suite_Booking_Repository {
         $customers         = array();
         $status_breakdown  = array();
         $type_breakdown    = array();
+        $category_breakdown = array();
         $duration_breakdown = array();
         $country_breakdown = array();
         $gender_breakdown  = array();
@@ -49,6 +57,7 @@ class Analytic_Suite_Booking_Repository {
             $country  = $this->value_from_columns( $row, array( 'country', 'invitee_country', 'customer_country' ) );
             $source_id = absint( $this->value_from_columns( $row, array( 'source_id', 'order_id' ) ) );
             $gender    = '';
+            $service_label = '';
 
             if ( $source_id && function_exists( 'wc_get_order' ) ) {
                 $order = wc_get_order( $source_id );
@@ -63,7 +72,26 @@ class Analytic_Suite_Booking_Repository {
                     }
 
                     $gender = $this->normalize_gender( $order->get_meta( 'gender_' ) );
+                    $service_label = $this->get_order_service_label( $order );
                 }
+            }
+
+            if ( '' === $service_label ) {
+                $service_label = $this->get_event_label( $type );
+            }
+
+            if ( '' === $service_label ) {
+                $service_label = (string) $type;
+            }
+
+            $booking_category = $this->classify_booking_type( $service_label );
+
+            if ( ! empty( $filters['booking_type'] ) && ! $this->text_matches( $service_label . ' ' . $booking_category, $filters['booking_type'] ) ) {
+                continue;
+            }
+
+            if ( ! empty( $filters['exclude_booking_type'] ) && $this->text_matches( $service_label . ' ' . $booking_category, $filters['exclude_booking_type'] ) ) {
+                continue;
             }
 
             if ( ! empty( $filters['gender'] ) && ! $this->gender_matches( $gender, $filters['gender'] ) ) {
@@ -89,7 +117,8 @@ class Analytic_Suite_Booking_Repository {
             }
 
             $this->increment_breakdown( $status_breakdown, $status ? $status : __( 'Inconnu', 'analytic-suite' ) );
-            $this->increment_breakdown( $type_breakdown, $type ? $type : __( 'Non classé', 'analytic-suite' ) );
+            $this->increment_breakdown( $type_breakdown, $service_label ? $service_label : __( 'Non classé', 'analytic-suite' ) );
+            $this->increment_breakdown( $category_breakdown, $booking_category );
 
             if ( $duration ) {
                 $this->increment_breakdown( $duration_breakdown, $duration . ' min' );
@@ -106,6 +135,7 @@ class Analytic_Suite_Booking_Repository {
 
         arsort( $status_breakdown );
         arsort( $type_breakdown );
+        arsort( $category_breakdown );
         arsort( $duration_breakdown );
         arsort( $country_breakdown );
         arsort( $gender_breakdown );
@@ -120,7 +150,9 @@ class Analytic_Suite_Booking_Repository {
             'unique_customers'   => count( $customers ),
             'status_breakdown'   => $status_breakdown,
             'type_breakdown'     => array_slice( $type_breakdown, 0, 10, true ),
+            'category_breakdown' => $category_breakdown,
             'duration_breakdown' => array_slice( $duration_breakdown, 0, 10, true ),
+            'duration_summary'   => $this->get_duration_summary( $duration_breakdown ),
             'country_breakdown'  => array_slice( $country_breakdown, 0, 10, true ),
             'gender_breakdown'   => $gender_breakdown,
         );
@@ -224,12 +256,6 @@ class Analytic_Suite_Booking_Repository {
             $values[] = absint( $filters['duration'] );
         }
 
-        $type_column = $this->first_existing_column( $columns, array( 'event_type', 'booking_type', 'calendar_event_id', 'event_id' ) );
-        if ( $type_column && ! empty( $filters['booking_type'] ) ) {
-            $where[]  = '`' . esc_sql( $type_column ) . '` = %s';
-            $values[] = $filters['booking_type'];
-        }
-
         $country_column = $this->first_existing_column( $columns, array( 'country', 'invitee_country', 'customer_country' ) );
         if ( $country_column && ! empty( $filters['country'] ) ) {
             $where[]  = '`' . esc_sql( $country_column ) . '` = %s';
@@ -304,6 +330,141 @@ class Analytic_Suite_Booking_Repository {
     }
 
     /**
+     * Gets product/service labels from the linked WooCommerce order.
+     *
+     * @param WC_Order $order Order.
+     * @return string
+     */
+    private function get_order_service_label( WC_Order $order ) {
+        $labels = array();
+
+        foreach ( $order->get_items() as $item ) {
+            $labels[] = $item->get_name();
+        }
+
+        return implode( ', ', array_filter( $labels ) );
+    }
+
+    /**
+     * Tries to resolve a FluentBooking event identifier into a readable label.
+     *
+     * @param mixed $event_id Event identifier.
+     * @return string
+     */
+    private function get_event_label( $event_id ) {
+        global $wpdb;
+
+        $event_id = absint( $event_id );
+
+        if ( ! $event_id ) {
+            return '';
+        }
+
+        if ( isset( $this->event_labels[ $event_id ] ) ) {
+            return $this->event_labels[ $event_id ];
+        }
+
+        $tables = array(
+            $wpdb->prefix . 'fcal_calendar_events',
+            $wpdb->prefix . 'fcal_events',
+        );
+
+        foreach ( $tables as $table ) {
+            if ( ! $this->table_exists( $table ) ) {
+                continue;
+            }
+
+            $columns      = $this->get_columns( $table );
+            $label_column = $this->first_existing_column( $columns, array( 'title', 'name', 'event_title', 'post_title' ) );
+
+            if ( ! $label_column ) {
+                continue;
+            }
+
+            $label = $wpdb->get_var(
+                $wpdb->prepare(
+                    'SELECT `' . esc_sql( $label_column ) . '` FROM `' . esc_sql( $table ) . '` WHERE id = %d LIMIT 1',
+                    $event_id
+                )
+            );
+
+            if ( $label ) {
+                $this->event_labels[ $event_id ] = (string) $label;
+
+                return $this->event_labels[ $event_id ];
+            }
+        }
+
+        $this->event_labels[ $event_id ] = '';
+
+        return '';
+    }
+
+    /**
+     * Classifies booking labels into business categories.
+     *
+     * @param string $label Label.
+     * @return string
+     */
+    private function classify_booking_type( $label ) {
+        $normalized = $this->normalize_search_text( $label );
+
+        if ( false !== strpos( $normalized, 'diagnostic' ) || false !== strpos( $normalized, 'strategique' ) ) {
+            return __( 'Diagnostic stratégique', 'analytic-suite' );
+        }
+
+        if ( false !== strpos( $normalized, 'diner' ) || false !== strpos( $normalized, 'dinner' ) ) {
+            return __( 'Dîner', 'analytic-suite' );
+        }
+
+        if ( false !== strpos( $normalized, 'session' ) ) {
+            return __( 'Session', 'analytic-suite' );
+        }
+
+        return __( 'Autres', 'analytic-suite' );
+    }
+
+    /**
+     * Builds the duration comparison requested in the dashboard.
+     *
+     * @param array $duration_breakdown Duration buckets.
+     * @return array
+     */
+    private function get_duration_summary( $duration_breakdown ) {
+        $thirty_minutes = isset( $duration_breakdown['30 min'] ) ? (int) $duration_breakdown['30 min'] : 0;
+        $one_hour       = isset( $duration_breakdown['60 min'] ) ? (int) $duration_breakdown['60 min'] : 0;
+
+        return array(
+            '30 min' => $thirty_minutes,
+            '1h'     => $one_hour,
+            'leader' => $thirty_minutes > $one_hour ? __( '30 min', 'analytic-suite' ) : ( $one_hour > $thirty_minutes ? __( '1h', 'analytic-suite' ) : __( 'Égalité', 'analytic-suite' ) ),
+        );
+    }
+
+    /**
+     * Checks if a text contains a filter, accent-insensitively.
+     *
+     * @param string $text   Text.
+     * @param string $filter Filter.
+     * @return bool
+     */
+    private function text_matches( $text, $filter ) {
+        return false !== strpos( $this->normalize_search_text( $text ), $this->normalize_search_text( $filter ) );
+    }
+
+    /**
+     * Normalizes text for loose matching.
+     *
+     * @param string $text Text.
+     * @return string
+     */
+    private function normalize_search_text( $text ) {
+        $text = strtolower( remove_accents( (string) $text ) );
+
+        return trim( $text );
+    }
+
+    /**
      * Normalizes the site's gender metadata.
      *
      * @param string $gender Raw gender.
@@ -359,7 +520,13 @@ class Analytic_Suite_Booking_Repository {
             'unique_customers'   => 0,
             'status_breakdown'   => array(),
             'type_breakdown'     => array(),
+            'category_breakdown' => array(),
             'duration_breakdown' => array(),
+            'duration_summary'   => array(
+                '30 min' => 0,
+                '1h'     => 0,
+                'leader' => __( 'Égalité', 'analytic-suite' ),
+            ),
             'country_breakdown'  => array(),
             'gender_breakdown'   => array(),
         );
