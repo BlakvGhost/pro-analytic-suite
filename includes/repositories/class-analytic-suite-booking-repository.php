@@ -56,11 +56,20 @@ class Analytic_Suite_Booking_Repository {
             $email    = strtolower( (string) $this->value_from_columns( $row, array( 'email', 'invitee_email', 'customer_email' ) ) );
             $country  = $this->value_from_columns( $row, array( 'country', 'invitee_country', 'customer_country' ) );
             $source_id = absint( $this->value_from_columns( $row, array( 'source_id', 'order_id' ) ) );
+            $booking_id = absint( $this->value_from_columns( $row, array( 'id', 'booking_id' ) ) );
             $gender    = '';
             $service_label = '';
 
-            if ( $source_id && function_exists( 'wc_get_order' ) ) {
-                $order = wc_get_order( $source_id );
+            if ( ! $duration ) {
+                $duration = $this->get_duration_from_row( $row );
+            }
+
+            if ( function_exists( 'wc_get_order' ) ) {
+                $order = $source_id ? wc_get_order( $source_id ) : false;
+
+                if ( ! $order && $booking_id ) {
+                    $order = $this->get_order_by_booking_id( $booking_id );
+                }
 
                 if ( $order instanceof WC_Order ) {
                     if ( '' === $email ) {
@@ -166,10 +175,18 @@ class Analytic_Suite_Booking_Repository {
     private function find_booking_table() {
         global $wpdb;
 
-        $known_table = $wpdb->prefix . 'fcal_bookings';
+        $known_tables = array(
+            $wpdb->prefix . 'fcal_bookings',
+            $wpdb->prefix . 'fluent_booking_appointments',
+            $wpdb->prefix . 'fluentcalendar_bookings',
+            $wpdb->prefix . 'fluent_bookings',
+            $wpdb->prefix . 'fcal_appointments',
+        );
 
-        if ( $this->table_exists( $known_table ) ) {
-            return $known_table;
+        foreach ( $known_tables as $known_table ) {
+            if ( $this->table_exists( $known_table ) ) {
+                return $known_table;
+            }
         }
 
         $like   = $wpdb->esc_like( $wpdb->prefix . 'fluent' ) . '%booking%';
@@ -234,7 +251,7 @@ class Analytic_Suite_Booking_Repository {
         $where  = array( '1=1' );
         $values = array();
 
-        $date_column = $this->first_existing_column( $columns, array( 'start_time', 'start_date', 'booking_date', 'created_at' ) );
+        $date_column = $this->first_existing_column( $columns, array( 'start_at', 'start_time', 'start_datetime', 'start_date', 'start', 'booking_date', 'created_at' ) );
         if ( $date_column && ! empty( $filters['date_from'] ) ) {
             $where[]  = '`' . esc_sql( $date_column ) . '` >= %s';
             $values[] = $filters['date_from'] . ' 00:00:00';
@@ -274,7 +291,7 @@ class Analytic_Suite_Booking_Repository {
             $values[] = absint( $filters['customer'] );
         }
 
-        $order_column = $this->first_existing_column( $columns, array( 'id', 'created_at', 'start_time', 'booking_date' ) );
+        $order_column = $this->first_existing_column( $columns, array( 'id', 'created_at', 'start_at', 'start_time', 'booking_date' ) );
         $order_sql    = $order_column ? ' ORDER BY `' . esc_sql( $order_column ) . '` DESC' : '';
         $sql          = 'SELECT * FROM `' . esc_sql( $table ) . '` WHERE ' . implode( ' AND ', $where ) . $order_sql . ' LIMIT 2000';
 
@@ -343,6 +360,92 @@ class Analytic_Suite_Booking_Repository {
         }
 
         return implode( ', ', array_filter( $labels ) );
+    }
+
+    /**
+     * Finds a WooCommerce order through the __fcal_booking_id item meta used by FluentBooking.
+     *
+     * @param int $booking_id Booking ID.
+     * @return WC_Order|false
+     */
+    private function get_order_by_booking_id( $booking_id ) {
+        global $wpdb;
+
+        $booking_id = absint( $booking_id );
+
+        if ( ! $booking_id || ! function_exists( 'wc_get_order' ) ) {
+            return false;
+        }
+
+        if ( ! $this->table_exists( $wpdb->prefix . 'woocommerce_order_items' ) || ! $this->table_exists( $wpdb->prefix . 'woocommerce_order_itemmeta' ) ) {
+            return false;
+        }
+
+        $order_id = $wpdb->get_var(
+            $wpdb->prepare(
+                "SELECT oi.order_id
+                FROM {$wpdb->prefix}woocommerce_order_items oi
+                INNER JOIN {$wpdb->prefix}woocommerce_order_itemmeta oim ON oi.order_item_id = oim.order_item_id
+                WHERE oim.meta_key = %s
+                AND oim.meta_value = %s
+                ORDER BY oi.order_id DESC
+                LIMIT 1",
+                '__fcal_booking_id',
+                (string) $booking_id
+            )
+        );
+
+        return $order_id ? wc_get_order( absint( $order_id ) ) : false;
+    }
+
+    /**
+     * Computes duration in minutes when FluentBooking stores start/end but no slot_minutes.
+     *
+     * @param array $row Booking row.
+     * @return int
+     */
+    private function get_duration_from_row( $row ) {
+        $start = $this->value_from_columns( $row, array( 'start_at', 'start_time', 'start_datetime', 'start_date', 'start' ) );
+        $end   = $this->value_from_columns( $row, array( 'end_at', 'end_time', 'end_datetime', 'end_date', 'end' ) );
+
+        if ( ! $start || ! $end ) {
+            return 0;
+        }
+
+        $start_ts = $this->date_to_timestamp( $start );
+        $end_ts   = $this->date_to_timestamp( $end );
+
+        if ( ! $start_ts || ! $end_ts || $end_ts <= $start_ts ) {
+            return 0;
+        }
+
+        return (int) round( ( $end_ts - $start_ts ) / MINUTE_IN_SECONDS );
+    }
+
+    /**
+     * Converts common FluentBooking date values to timestamps.
+     *
+     * @param mixed $value Date value.
+     * @return int
+     */
+    private function date_to_timestamp( $value ) {
+        if ( is_numeric( $value ) ) {
+            $timestamp = (int) $value;
+
+            if ( $timestamp > 2000000000 ) {
+                $timestamp = (int) floor( $timestamp / 1000 );
+            }
+
+            return $timestamp;
+        }
+
+        $value = trim( (string) $value );
+
+        if ( preg_match( '/^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}$/', $value ) ) {
+            return (int) strtotime( $value . ' UTC' );
+        }
+
+        return (int) strtotime( $value );
     }
 
     /**

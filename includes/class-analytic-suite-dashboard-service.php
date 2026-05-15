@@ -29,14 +29,23 @@ class Analytic_Suite_Dashboard_Service {
     private $bookings;
 
     /**
+     * Content repository.
+     *
+     * @var Analytic_Suite_Content_Repository
+     */
+    private $contents;
+
+    /**
      * Constructor.
      *
      * @param Analytic_Suite_Order_Repository   $orders   Order repository.
      * @param Analytic_Suite_Booking_Repository $bookings Booking repository.
+     * @param Analytic_Suite_Content_Repository $contents Content repository.
      */
-    public function __construct( Analytic_Suite_Order_Repository $orders, Analytic_Suite_Booking_Repository $bookings ) {
+    public function __construct( Analytic_Suite_Order_Repository $orders, Analytic_Suite_Booking_Repository $bookings, Analytic_Suite_Content_Repository $contents ) {
         $this->orders   = $orders;
         $this->bookings = $bookings;
+        $this->contents = $contents;
     }
 
     /**
@@ -74,6 +83,7 @@ class Analytic_Suite_Dashboard_Service {
     public function get_dashboard_data( $filters ) {
         $order_metrics   = $this->orders->get_metrics( $filters );
         $booking_metrics = $this->bookings->get_metrics( $filters );
+        $content_metrics = $this->contents->get_metrics( $filters );
 
         return array(
             'summary'      => array(
@@ -87,9 +97,12 @@ class Analytic_Suite_Dashboard_Service {
                 'cancelled_carts'     => $order_metrics['cancelled_orders'],
                 'cancellation_rate'   => $booking_metrics['cancellation_rate'],
                 'cancelled_bookings'  => $booking_metrics['cancelled_bookings'],
+                'masterclass_users'   => $content_metrics['masterclass_users'],
+                'book_users'          => $content_metrics['book_users'],
             ),
             'orders'       => $order_metrics,
             'bookings'     => $booking_metrics,
+            'contents'     => $content_metrics,
             'generated_at' => current_time( 'mysql' ),
         );
     }
@@ -121,6 +134,12 @@ class Analytic_Suite_Dashboard_Service {
             array( 'Sessions 30 min', $data['bookings']['duration_summary']['30 min'] ),
             array( 'Sessions 1h', $data['bookings']['duration_summary']['1h'] ),
             array( 'Durée dominante', $data['bookings']['duration_summary']['leader'] ),
+            array( 'Masterclass suivies', $data['contents']['masterclass_follows'] ),
+            array( 'Utilisateurs masterclass', $data['contents']['masterclass_users'] ),
+            array( 'Livres consultés', $data['contents']['book_downloads'] ),
+            array( 'Utilisateurs livres', $data['contents']['book_users'] ),
+            array( 'Masterclass avec replay', $data['contents']['masterclass_replays'] ),
+            array( 'Masterclass à venir', $data['contents']['upcoming_masterclasses'] ),
         );
     }
 

@@ -42,6 +42,7 @@ class Analytic_Suite {
     private function load_dependencies() {
         require_once ANALYTIC_SUITE_PATH . 'includes/repositories/class-analytic-suite-order-repository.php';
         require_once ANALYTIC_SUITE_PATH . 'includes/repositories/class-analytic-suite-booking-repository.php';
+        require_once ANALYTIC_SUITE_PATH . 'includes/repositories/class-analytic-suite-content-repository.php';
         require_once ANALYTIC_SUITE_PATH . 'includes/class-analytic-suite-dashboard-service.php';
         require_once ANALYTIC_SUITE_PATH . 'admin/class-analytic-suite-admin.php';
         require_once ANALYTIC_SUITE_PATH . 'admin/class-analytic-suite-export-controller.php';
@@ -138,7 +139,8 @@ class Analytic_Suite {
     private function get_dashboard_service() {
         return new Analytic_Suite_Dashboard_Service(
             new Analytic_Suite_Order_Repository(),
-            new Analytic_Suite_Booking_Repository()
+            new Analytic_Suite_Booking_Repository(),
+            new Analytic_Suite_Content_Repository()
         );
     }
 }

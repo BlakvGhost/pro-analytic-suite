@@ -48,6 +48,7 @@ class Analytic_Suite_Admin {
             'analytic-suite-clients'  => __( 'Clients', 'analytic-suite' ),
             'analytic-suite-bookings' => __( 'Réservations', 'analytic-suite' ),
             'analytic-suite-orders'   => __( 'Commandes', 'analytic-suite' ),
+            'analytic-suite-contents' => __( 'Contenus', 'analytic-suite' ),
             'analytic-suite-reports'  => __( 'Rapports', 'analytic-suite' ),
             'analytic-suite-exports'  => __( 'Exports', 'analytic-suite' ),
             'analytic-suite-settings' => __( 'Paramètres', 'analytic-suite' ),
@@ -115,6 +116,8 @@ class Analytic_Suite_Admin {
             $this->render_bookings( $data );
         } elseif ( 'orders' === $view ) {
             $this->render_orders( $data );
+        } elseif ( 'contents' === $view ) {
+            $this->render_contents( $data );
         } elseif ( 'exports' === $view ) {
             $this->render_exports( $filters );
         } elseif ( 'settings' === $view ) {
@@ -137,6 +140,7 @@ class Analytic_Suite_Admin {
             'clients'   => __( 'Analytics Clients', 'analytic-suite' ),
             'bookings'  => __( 'Analytics Réservations', 'analytic-suite' ),
             'orders'    => __( 'Analytics Commandes', 'analytic-suite' ),
+            'contents'  => __( 'Analytics Contenus', 'analytic-suite' ),
             'reports'   => __( 'Rapports Analytics', 'analytic-suite' ),
             'exports'   => __( 'Exports Analytics', 'analytic-suite' ),
             'settings'  => __( 'Paramètres Analytics', 'analytic-suite' ),
@@ -155,6 +159,10 @@ class Analytic_Suite_Admin {
 
         if ( empty( $data['bookings']['available'] ) ) {
             echo '<div class="notice notice-warning"><p>' . esc_html__( 'Les tables FluentBooking ne sont pas détectées. Les métriques de réservations resteront à zéro.', 'analytic-suite' ) . '</p></div>';
+        }
+
+        if ( empty( $data['contents']['available'] ) ) {
+            echo '<div class="notice notice-info"><p>' . esc_html__( 'Les tables ou post types de contenus ne sont pas détectés. Les métriques Masterclass/Livres resteront à zéro.', 'analytic-suite' ) . '</p></div>';
         }
     }
 
@@ -248,6 +256,8 @@ class Analytic_Suite_Admin {
         $this->render_card( __( 'Pays #1 réservations', 'analytic-suite' ), $top_booking_country );
         $this->render_card( __( 'Civilité #1 réservations', 'analytic-suite' ), $top_booking_gender );
         $this->render_card( __( 'Durée dominante', 'analytic-suite' ), $data['bookings']['duration_summary']['leader'] );
+        $this->render_card( __( 'Suivis masterclass', 'analytic-suite' ), $data['contents']['masterclass_follows'] );
+        $this->render_card( __( 'Livres consultés', 'analytic-suite' ), $data['contents']['book_downloads'] );
         echo '</div>';
 
         echo '<div class="analytic-suite-grid">';
@@ -257,6 +267,8 @@ class Analytic_Suite_Admin {
         $this->render_breakdown_table( __( 'Comparaison 30 min / 1h', 'analytic-suite' ), $this->format_duration_summary( $data['bookings']['duration_summary'] ) );
         $this->render_breakdown_table( __( 'Pays avec le plus de réservations', 'analytic-suite' ), $data['bookings']['country_breakdown'] );
         $this->render_breakdown_table( __( 'Civilité avec le plus de réservations', 'analytic-suite' ), $data['bookings']['gender_breakdown'] );
+        $this->render_breakdown_table( __( 'Top masterclass', 'analytic-suite' ), $data['contents']['top_masterclasses'] );
+        $this->render_breakdown_table( __( 'Top livres blancs', 'analytic-suite' ), $data['contents']['top_books'] );
         $this->render_breakdown_table( __( 'Statuts réservations', 'analytic-suite' ), $data['bookings']['status_breakdown'] );
         $this->render_breakdown_table( __( 'Statuts commandes', 'analytic-suite' ), $data['orders']['status_breakdown'] );
         echo '</div>';
@@ -320,6 +332,31 @@ class Analytic_Suite_Admin {
     }
 
     /**
+     * Renders content analytics.
+     *
+     * @param array $data Dashboard data.
+     */
+    private function render_contents( $data ) {
+        echo '<div class="analytic-suite-cards">';
+        $this->render_card( __( 'Masterclass publiées', 'analytic-suite' ), $data['contents']['total_masterclasses'] );
+        $this->render_card( __( 'Masterclass suivies', 'analytic-suite' ), $data['contents']['masterclass_follows'] );
+        $this->render_card( __( 'Utilisateurs masterclass', 'analytic-suite' ), $data['contents']['masterclass_users'] );
+        $this->render_card( __( 'Masterclass avec replay', 'analytic-suite' ), $data['contents']['masterclass_replays'] );
+        $this->render_card( __( 'Masterclass à venir', 'analytic-suite' ), $data['contents']['upcoming_masterclasses'] );
+        $this->render_card( __( 'Livres publiés', 'analytic-suite' ), $data['contents']['total_books'] );
+        $this->render_card( __( 'Livres consultés', 'analytic-suite' ), $data['contents']['book_downloads'] );
+        $this->render_card( __( 'Utilisateurs livres', 'analytic-suite' ), $data['contents']['book_users'] );
+        echo '</div>';
+
+        echo '<div class="analytic-suite-grid">';
+        $this->render_breakdown_table( __( 'Top masterclass suivies', 'analytic-suite' ), $data['contents']['top_masterclasses'] );
+        $this->render_breakdown_table( __( 'Top livres consultés', 'analytic-suite' ), $data['contents']['top_books'] );
+        $this->render_breakdown_table( __( 'Suivis masterclass par mois', 'analytic-suite' ), $data['contents']['masterclass_by_month'] );
+        $this->render_breakdown_table( __( 'Consultations livres par mois', 'analytic-suite' ), $data['contents']['books_by_month'] );
+        echo '</div>';
+    }
+
+    /**
      * Renders reports page.
      *
      * @param array $data Dashboard data.
@@ -364,6 +401,8 @@ class Analytic_Suite_Admin {
         echo '<table class="widefat striped"><tbody>';
         echo '<tr><th>' . esc_html__( 'WooCommerce', 'analytic-suite' ) . '</th><td>' . esc_html( $data['orders']['available'] ? __( 'Détecté', 'analytic-suite' ) : __( 'Non détecté', 'analytic-suite' ) ) . '</td></tr>';
         echo '<tr><th>' . esc_html__( 'FluentBooking', 'analytic-suite' ) . '</th><td>' . esc_html( $data['bookings']['available'] ? __( 'Détecté', 'analytic-suite' ) : __( 'Non détecté', 'analytic-suite' ) ) . '</td></tr>';
+        echo '<tr><th>' . esc_html__( 'Table user_masterclass', 'analytic-suite' ) . '</th><td>' . esc_html( $data['contents']['masterclass_table'] ? __( 'Détectée', 'analytic-suite' ) : __( 'Non détectée', 'analytic-suite' ) ) . '</td></tr>';
+        echo '<tr><th>' . esc_html__( 'Table user_livres', 'analytic-suite' ) . '</th><td>' . esc_html( $data['contents']['books_table'] ? __( 'Détectée', 'analytic-suite' ) : __( 'Non détectée', 'analytic-suite' ) ) . '</td></tr>';
         echo '<tr><th>' . esc_html__( 'Dernière synchronisation', 'analytic-suite' ) . '</th><td>' . esc_html( get_option( 'analytic_suite_last_sync', __( 'Jamais', 'analytic-suite' ) ) ) . '</td></tr>';
         echo '</tbody></table></div>';
     }
