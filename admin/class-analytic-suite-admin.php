@@ -376,6 +376,23 @@ class Analytic_Suite_Admin {
             $this->render_ga_cards( $data['ga'] );
         }
 
+        echo '<div class="analytic-suite-chart-grid">';
+        $this->render_chart( __( 'Activité principale', 'analytic-suite' ), 'bar', array(
+            __( 'Commandes', 'analytic-suite' )    => $summary['orders'],
+            __( 'Réservations', 'analytic-suite' ) => $summary['bookings'],
+            __( 'Masterclass', 'analytic-suite' )  => $data['contents']['masterclass_follows'],
+            __( 'Livres', 'analytic-suite' )       => $data['contents']['book_downloads'],
+        ) );
+        $this->render_chart( __( 'Réservations par catégorie', 'analytic-suite' ), 'doughnut', $data['bookings']['category_breakdown'] );
+        $this->render_chart( __( 'Durées de réservation', 'analytic-suite' ), 'bar', $data['bookings']['duration_breakdown'] );
+        $this->render_chart( __( 'Contenus par mois', 'analytic-suite' ), 'line', $this->merge_chart_series(
+            $data['contents']['masterclass_by_month'],
+            $data['contents']['books_by_month'],
+            __( 'Masterclass', 'analytic-suite' ),
+            __( 'Livres', 'analytic-suite' )
+        ) );
+        echo '</div>';
+
         echo '<div class="analytic-suite-grid">';
         $this->render_breakdown_table( __( 'Dîners / Sessions / Diagnostics', 'analytic-suite' ), $data['bookings']['category_breakdown'] );
         $this->render_breakdown_table( __( 'Types de réservation détaillés', 'analytic-suite' ), $data['bookings']['type_breakdown'] );
@@ -462,6 +479,16 @@ class Analytic_Suite_Admin {
         $this->render_card( __( 'Taux de fidélisation', 'analytic-suite' ), $data['orders']['retention_rate'] . '%' );
         echo '</div>';
 
+        echo '<div class="analytic-suite-chart-grid">';
+        $this->render_chart( __( 'Répartition clients', 'analytic-suite' ), 'bar', array(
+            __( 'Uniques', 'analytic-suite' )    => $data['summary']['unique_customers'],
+            __( 'Récurrents', 'analytic-suite' ) => $data['summary']['recurring_customers'],
+            __( 'Produit repris', 'analytic-suite' ) => $data['summary']['repeat_product_customers'],
+        ) );
+        $this->render_chart( __( 'Pays réservations', 'analytic-suite' ), 'doughnut', $data['bookings']['country_breakdown'] );
+        $this->render_chart( __( 'Civilité réservations', 'analytic-suite' ), 'doughnut', $data['bookings']['gender_breakdown'] );
+        echo '</div>';
+
         $this->render_breakdown_table( __( 'Réservations par pays', 'analytic-suite' ), $data['bookings']['country_breakdown'] );
         $this->render_breakdown_table( __( 'Civilité commandes', 'analytic-suite' ), $data['orders']['gender_breakdown'] );
         $this->render_breakdown_table( __( 'Civilité réservations', 'analytic-suite' ), $data['bookings']['gender_breakdown'] );
@@ -479,6 +506,15 @@ class Analytic_Suite_Admin {
         $this->render_card( __( 'Annulées', 'analytic-suite' ), $data['bookings']['cancelled_bookings'] );
         $this->render_card( __( 'Taux d’annulation', 'analytic-suite' ), $data['bookings']['cancellation_rate'] . '%' );
         $this->render_card( __( 'Durée dominante', 'analytic-suite' ), $data['bookings']['duration_summary']['leader'] );
+        echo '</div>';
+
+        echo '<div class="analytic-suite-chart-grid">';
+        $this->render_chart( __( 'Statut des réservations', 'analytic-suite' ), 'doughnut', array(
+            __( 'Validées', 'analytic-suite' ) => $data['bookings']['confirmed_bookings'],
+            __( 'Annulées', 'analytic-suite' ) => $data['bookings']['cancelled_bookings'],
+        ) );
+        $this->render_chart( __( 'Types de réservation', 'analytic-suite' ), 'bar', $data['bookings']['type_breakdown'] );
+        $this->render_chart( __( 'Durées', 'analytic-suite' ), 'bar', $data['bookings']['duration_breakdown'] );
         echo '</div>';
 
         echo '<div class="analytic-suite-grid">';
@@ -503,6 +539,12 @@ class Analytic_Suite_Admin {
         $this->render_card( __( 'Panier moyen', 'analytic-suite' ), $this->format_price( $data['orders']['average_order_value'] ) );
         echo '</div>';
 
+        echo '<div class="analytic-suite-chart-grid">';
+        $this->render_chart( __( 'Commandes par statut', 'analytic-suite' ), 'doughnut', $data['orders']['status_breakdown'] );
+        $this->render_chart( __( 'Ventes par produit', 'analytic-suite' ), 'bar', $this->format_product_chart_items( $data['orders']['product_sales'], 'quantity' ) );
+        $this->render_chart( __( 'CA par produit', 'analytic-suite' ), 'bar', $this->format_product_chart_items( $data['orders']['product_sales'], 'revenue' ) );
+        echo '</div>';
+
         $this->render_product_table( $data['orders']['product_sales'] );
     }
 
@@ -521,6 +563,17 @@ class Analytic_Suite_Admin {
         $this->render_card( __( 'Livres publiés', 'analytic-suite' ), $data['contents']['total_books'] );
         $this->render_card( __( 'Livres consultés', 'analytic-suite' ), $data['contents']['book_downloads'] );
         $this->render_card( __( 'Utilisateurs livres', 'analytic-suite' ), $data['contents']['book_users'] );
+        echo '</div>';
+
+        echo '<div class="analytic-suite-chart-grid">';
+        $this->render_chart( __( 'Consultations par mois', 'analytic-suite' ), 'line', $this->merge_chart_series(
+            $data['contents']['masterclass_by_month'],
+            $data['contents']['books_by_month'],
+            __( 'Masterclass', 'analytic-suite' ),
+            __( 'Livres', 'analytic-suite' )
+        ) );
+        $this->render_chart( __( 'Top masterclass', 'analytic-suite' ), 'bar', $data['contents']['top_masterclasses'] );
+        $this->render_chart( __( 'Top livres blancs', 'analytic-suite' ), 'bar', $data['contents']['top_books'] );
         echo '</div>';
 
         echo '<div class="analytic-suite-grid">';
@@ -661,6 +714,139 @@ class Analytic_Suite_Admin {
      */
     private function render_card( $label, $value ) {
         echo '<div class="analytic-suite-card"><span>' . esc_html( $label ) . '</span><strong>' . wp_kses_post( (string) $value ) . '</strong></div>';
+    }
+
+    /**
+     * Renders an interactive chart container.
+     *
+     * @param string $title Chart title.
+     * @param string $type  Chart type.
+     * @param array  $items Chart items.
+     */
+    private function render_chart( $title, $type, $items ) {
+        $points = $this->normalize_chart_points( $items );
+
+        echo '<div class="analytic-suite-chart-panel">';
+        echo '<h2>' . esc_html( $title ) . '</h2>';
+
+        if ( empty( $points ) ) {
+            echo '<p>' . esc_html__( 'Aucune donnée disponible.', 'analytic-suite' ) . '</p></div>';
+            return;
+        }
+
+        echo '<div class="analytic-suite-chart-wrap">';
+        echo $this->render_chart_fallback( $points );
+        echo '<canvas class="analytic-suite-chart" height="260" data-chart-type="' . esc_attr( $type ) . '" data-chart-points="' . esc_attr( wp_json_encode( $points ) ) . '" aria-label="' . esc_attr( $title ) . '" role="img"></canvas>';
+        echo '</div>';
+        echo '</div>';
+    }
+
+    /**
+     * Renders a non-JS fallback so charts are still visible if the canvas script does not run.
+     *
+     * @param array $points Chart points.
+     * @return string
+     */
+    private function render_chart_fallback( $points ) {
+        $max = 0;
+        foreach ( $points as $point ) {
+            $max = max( $max, (float) $point['value'] );
+        }
+
+        $output = '<div class="analytic-suite-chart-fallback" aria-hidden="true">';
+
+        foreach ( $points as $index => $point ) {
+            $value   = (float) $point['value'];
+            $percent = $max > 0 ? min( 100, round( ( $value / $max ) * 100, 2 ) ) : 0;
+
+            $output .= '<div class="analytic-suite-chart-row">';
+            $output .= '<span class="analytic-suite-chart-label">' . esc_html( $point['label'] ) . '</span>';
+            $output .= '<span class="analytic-suite-chart-track"><span class="analytic-suite-chart-fill" style="width:' . esc_attr( $percent ) . '%"></span></span>';
+            $output .= '<strong class="analytic-suite-chart-value">' . esc_html( number_format_i18n( $value, 0 ) ) . '</strong>';
+            $output .= '</div>';
+        }
+
+        $output .= '</div>';
+
+        return $output;
+    }
+
+    /**
+     * Normalizes chart values into label/value points.
+     *
+     * @param array $items Raw items.
+     * @return array
+     */
+    private function normalize_chart_points( $items ) {
+        $points = array();
+
+        foreach ( (array) $items as $label => $value ) {
+            if ( is_array( $value ) && isset( $value['value'] ) ) {
+                $points[] = array(
+                    'label' => (string) $label,
+                    'value' => (float) $value['value'],
+                    'meta'  => isset( $value['meta'] ) ? (string) $value['meta'] : '',
+                );
+                continue;
+            }
+
+            if ( is_numeric( $value ) ) {
+                $points[] = array(
+                    'label' => (string) $label,
+                    'value' => (float) $value,
+                );
+            }
+        }
+
+        return $points;
+    }
+
+    /**
+     * Merges two date series into chart points.
+     *
+     * @param array  $first        First series.
+     * @param array  $second       Second series.
+     * @param string $first_label  First label.
+     * @param string $second_label Second label.
+     * @return array
+     */
+    private function merge_chart_series( $first, $second, $first_label, $second_label ) {
+        $months = array_unique( array_merge( array_keys( (array) $first ), array_keys( (array) $second ) ) );
+        sort( $months );
+
+        $points = array();
+        foreach ( $months as $month ) {
+            $first_value  = isset( $first[ $month ] ) ? (int) $first[ $month ] : 0;
+            $second_value = isset( $second[ $month ] ) ? (int) $second[ $month ] : 0;
+
+            $points[ $month ] = array(
+                'value' => $first_value + $second_value,
+                'meta'  => $first_label . ': ' . $first_value . ' · ' . $second_label . ': ' . $second_value,
+            );
+        }
+
+        return $points;
+    }
+
+    /**
+     * Formats product sales as chart items.
+     *
+     * @param array  $items Product sales.
+     * @param string $key   Metric key.
+     * @return array
+     */
+    private function format_product_chart_items( $items, $key ) {
+        $chart_items = array();
+
+        foreach ( (array) $items as $item ) {
+            if ( empty( $item['name'] ) || ! isset( $item[ $key ] ) ) {
+                continue;
+            }
+
+            $chart_items[ $item['name'] ] = (float) $item[ $key ];
+        }
+
+        return $chart_items;
     }
 
     /**
