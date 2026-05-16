@@ -36,6 +36,13 @@ class Analytic_Suite_Google_Analytics {
     private $cache_key = 'analytic_suite_ga_';
 
     /**
+     * Last connection error.
+     *
+     * @var string
+     */
+    private $last_error = '';
+
+    /**
      * Constructor.
      *
      * @param string $property_id GA4 property ID.
@@ -53,6 +60,20 @@ class Analytic_Suite_Google_Analytics {
      */
     public function is_configured() {
         return ! empty( $this->property_id ) && ! empty( $this->credentials );
+    }
+
+    /**
+     * Gets current configuration and last error status.
+     *
+     * @return array
+     */
+    public function get_status() {
+        return array(
+            'configured'   => $this->is_configured(),
+            'property_id'  => $this->property_id,
+            'client_email' => $this->credentials['client_email'] ?? '',
+            'last_error'   => $this->last_error,
+        );
     }
 
     /**
@@ -86,7 +107,7 @@ class Analytic_Suite_Google_Analytics {
                 'dateRanges'  => $date_range,
                 'dimensionFilter' => $dimension_filter,
                 'orderBys'    => array(
-                    array( 'metric' => array( 'metric_name' => 'screenPageViews' ), 'desc' => true ),
+                    array( 'metric' => array( 'metricName' => 'screenPageViews' ), 'desc' => true ),
                 ),
                 'limit'       => 50,
             )
@@ -124,7 +145,7 @@ class Analytic_Suite_Google_Analytics {
                 'metrics'    => array( 'activeUsers' ),
                 'dateRanges' => $date_range,
                 'orderBys'   => array(
-                    array( 'metric' => array( 'metric_name' => 'activeUsers' ), 'desc' => true ),
+                    array( 'metric' => array( 'metricName' => 'activeUsers' ), 'desc' => true ),
                 ),
                 'limit'      => 20,
             )
@@ -136,7 +157,7 @@ class Analytic_Suite_Google_Analytics {
                 'metrics'    => array( 'activeUsers' ),
                 'dateRanges' => $date_range,
                 'orderBys'   => array(
-                    array( 'metric' => array( 'metric_name' => 'activeUsers' ), 'desc' => true ),
+                    array( 'metric' => array( 'metricName' => 'activeUsers' ), 'desc' => true ),
                 ),
                 'limit'      => 10,
             )
@@ -187,7 +208,7 @@ class Analytic_Suite_Google_Analytics {
                 'metrics'    => array( 'sessions', 'activeUsers', 'averageSessionDuration', 'bounceRate' ),
                 'dateRanges' => $date_range,
                 'orderBys'   => array(
-                    array( 'metric' => array( 'metric_name' => 'sessions' ), 'desc' => true ),
+                    array( 'metric' => array( 'metricName' => 'sessions' ), 'desc' => true ),
                 ),
                 'limit'      => 15,
             )
@@ -209,7 +230,7 @@ class Analytic_Suite_Google_Analytics {
             return array( 'active_users' => 0 );
         }
 
-        $response = $this->run_report(
+        $response = $this->run_realtime_report(
             array(
                 'metrics' => array( 'activeUsers' ),
             )
@@ -277,6 +298,9 @@ class Analytic_Suite_Google_Analytics {
         $access_token = $this->get_access_token();
 
         if ( ! $access_token ) {
+            if ( empty( $this->last_error ) ) {
+                $this->last_error = __( 'Impossible de générer le token Google Analytics.', 'analytic-suite' );
+            }
             return array();
         }
 
@@ -294,16 +318,66 @@ class Analytic_Suite_Google_Analytics {
         );
 
         if ( is_wp_error( $response ) ) {
+            $this->last_error = $response->get_error_message();
             return array();
         }
 
         $code = wp_remote_retrieve_response_code( $response );
+        $raw_body = wp_remote_retrieve_body( $response );
 
         if ( 200 !== $code ) {
+            $this->last_error = $this->format_api_error( $raw_body, $code );
             return array();
         }
 
-        $body = json_decode( wp_remote_retrieve_body( $response ), true );
+        $body = json_decode( $raw_body, true );
+
+        return is_array( $body ) ? $body : array();
+    }
+
+    /**
+     * Runs a real-time report request to GA4 Data API.
+     *
+     * @param array $body Request body.
+     * @return array
+     */
+    private function run_realtime_report( $body ) {
+        $access_token = $this->get_access_token();
+
+        if ( ! $access_token ) {
+            if ( empty( $this->last_error ) ) {
+                $this->last_error = __( 'Impossible de générer le token Google Analytics.', 'analytic-suite' );
+            }
+            return array();
+        }
+
+        $url = "https://analyticsdata.googleapis.com/v1beta/properties/{$this->property_id}:runRealtimeReport";
+
+        $response = wp_remote_post(
+            $url,
+            array(
+                'headers' => array(
+                    'Authorization' => 'Bearer ' . $access_token,
+                    'Content-Type'  => 'application/json',
+                ),
+                'body' => wp_json_encode( $body ),
+            )
+        );
+
+        if ( is_wp_error( $response ) ) {
+            $this->last_error = $response->get_error_message();
+            return array();
+        }
+
+        $code = wp_remote_retrieve_response_code( $response );
+        $raw_body = wp_remote_retrieve_body( $response );
+
+        if ( 200 !== $code ) {
+            $this->last_error = $this->format_api_error( $raw_body, $code );
+            return array();
+        }
+
+        $body = json_decode( $raw_body, true );
 
         return is_array( $body ) ? $body : array();
     }
@@ -324,10 +398,10 @@ class Analytic_Suite_Google_Analytics {
             return '';
         }
 
-        $jwt_header = base64_encode( wp_json_encode( array( 'typ' => 'JWT', 'alg' => 'RS256' ) ) );
+        $jwt_header = $this->base64url_encode( wp_json_encode( array( 'typ' => 'JWT', 'alg' => 'RS256' ) ) );
 
         $now = time();
-        $jwt_payload = base64_encode(
+        $jwt_payload = $this->base64url_encode(
             wp_json_encode(
                 array(
                     'iss'   => $this->credentials['client_email'],
@@ -344,6 +418,7 @@ class Analytic_Suite_Google_Analytics {
         $private_key       = openssl_pkey_get_private( $this->credentials['private_key'] );
 
         if ( ! $private_key ) {
+            $this->last_error = __( 'Clé privée Google Analytics invalide.', 'analytic-suite' );
             return '';
         }
 
@@ -351,37 +426,88 @@ class Analytic_Suite_Google_Analytics {
         $signing_input = $jwt_header . '.' . $jwt_payload;
 
         if ( ! openssl_sign( $signing_input, $signature, $private_key, $signing_algorithm ) ) {
+            $this->last_error = __( 'Signature du token Google Analytics impossible.', 'analytic-suite' );
             return '';
         }
 
-        $jwt_signature = base64_encode( $signature );
+        $jwt_signature = $this->base64url_encode( $signature );
         $jwt = $signing_input . '.' . $jwt_signature;
 
         $response = wp_remote_post(
             'https://oauth2.googleapis.com/token',
             array(
-                'body' => wp_json_encode(
-                    array(
-                        'grant_type' => 'urn:ietf:params:oauth:grant-type:jwt-bearer',
-                        'assertion' => $jwt,
-                    )
+                'headers' => array(
+                    'Content-Type' => 'application/x-www-form-urlencoded',
+                ),
+                'body' => array(
+                    'grant_type' => 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+                    'assertion'   => $jwt,
                 ),
             )
         );
 
         if ( is_wp_error( $response ) ) {
+            $this->last_error = $response->get_error_message();
             return '';
         }
 
-        $data = json_decode( wp_remote_retrieve_body( $response ), true );
+        $code = wp_remote_retrieve_response_code( $response );
+        $raw_body = wp_remote_retrieve_body( $response );
+        $data = json_decode( $raw_body, true );
 
-        if ( empty( $data['access_token'] ) ) {
+        if ( 200 !== $code || empty( $data['access_token'] ) ) {
+            $this->last_error = $this->format_api_error( $raw_body, $code );
             return '';
         }
 
         set_transient( $this->cache_key . 'token', $data['access_token'], 3500 );
 
         return $data['access_token'];
+    }
+
+    /**
+     * Encodes data using base64url for JWT segments.
+     *
+     * @param string $data Raw data.
+     * @return string
+     */
+    private function base64url_encode( $data ) {
+        return rtrim( strtr( base64_encode( $data ), '+/', '-_' ), '=' );
+    }
+
+    /**
+     * Formats an API error response.
+     *
+     * @param string $body Response body.
+     * @param int    $code Response code.
+     * @return string
+     */
+    private function format_api_error( $body, $code ) {
+        $data = json_decode( $body, true );
+
+        if ( ! empty( $data['error']['message'] ) ) {
+            return sprintf(
+                /* translators: 1: HTTP code, 2: API error message. */
+                __( 'Google Analytics a répondu %1$d: %2$s', 'analytic-suite' ),
+                (int) $code,
+                $data['error']['message']
+            );
+        }
+
+        if ( ! empty( $data['error_description'] ) ) {
+            return sprintf(
+                /* translators: 1: HTTP code, 2: API error message. */
+                __( 'Google OAuth a répondu %1$d: %2$s', 'analytic-suite' ),
+                (int) $code,
+                $data['error_description']
+            );
+        }
+
+        return sprintf(
+            /* translators: %d: HTTP code. */
+            __( 'Google Analytics a répondu avec le code HTTP %d.', 'analytic-suite' ),
+            (int) $code
+        );
     }
 
     /**
@@ -554,6 +680,13 @@ class Analytic_Suite_Google_Analytics {
                 $wpdb->esc_like( '_transient_' . $this->cache_key ) . '%'
             )
         );
+
+        $wpdb->query(
+            $wpdb->prepare(
+                "DELETE FROM {$wpdb->options} WHERE option_name LIKE %s",
+                $wpdb->esc_like( '_transient_timeout_' . $this->cache_key ) . '%'
+            )
+        );
     }
 
     /**
@@ -571,10 +704,10 @@ class Analytic_Suite_Google_Analytics {
 
         $summary = $this->get_summary();
 
-        if ( empty( $summary['active_users'] ) && 0 !== $summary['active_users'] ) {
+        if ( ! empty( $this->last_error ) ) {
             return array(
                 'success' => false,
-                'message' => __( 'Erreur de connexion à Google Analytics', 'analytic-suite' ),
+                'message' => $this->last_error,
             );
         }
 

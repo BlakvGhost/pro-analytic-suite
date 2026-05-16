@@ -185,6 +185,8 @@ class Analytic_Suite_Admin {
      * @param array $data Dashboard data.
      */
     private function render_notices( $data ) {
+        $ga_status = $data['ga']['status'] ?? ( $data['ga_status'] ?? array() );
+
         if ( empty( $data['orders']['available'] ) ) {
             echo '<div class="notice notice-warning"><p>' . esc_html__( 'WooCommerce n’est pas détecté. Les métriques de commandes resteront à zéro.', 'analytic-suite' ) . '</p></div>';
         }
@@ -195,6 +197,12 @@ class Analytic_Suite_Admin {
 
         if ( empty( $data['contents']['available'] ) ) {
             echo '<div class="notice notice-info"><p>' . esc_html__( 'Les tables ou post types de contenus ne sont pas détectés. Les métriques Masterclass/Livres resteront à zéro.', 'analytic-suite' ) . '</p></div>';
+        }
+
+        if ( empty( $ga_status['configured'] ) ) {
+            echo '<div class="notice notice-info"><p>' . esc_html__( 'Google Analytics 4 n’est pas configuré. Ajoutez le Property ID et la clé JSON dans Paramètres pour afficher les données GA.', 'analytic-suite' ) . '</p></div>';
+        } elseif ( ! empty( $ga_status['last_error'] ) ) {
+            echo '<div class="notice notice-error"><p>' . esc_html( sprintf( __( 'Google Analytics 4 ne répond pas : %s', 'analytic-suite' ), $ga_status['last_error'] ) ) . '</p></div>';
         }
     }
 
@@ -372,8 +380,12 @@ class Analytic_Suite_Admin {
         $this->render_card( __( 'Livres consultés', 'analytic-suite' ), $data['contents']['book_downloads'] );
         echo '</div>';
 
-        if ( ! empty( $data['ga']['available'] ) ) {
+        if ( ! empty( $data['ga']['configured'] ) ) {
             $this->render_ga_cards( $data['ga'] );
+
+            if ( ! empty( $data['ga']['available'] ) ) {
+                $this->render_ga_charts( $data['ga'] );
+            }
         }
 
         echo '<div class="analytic-suite-chart-grid">';
@@ -432,6 +444,29 @@ class Analytic_Suite_Admin {
         if ( ! empty( $realtime['active_users'] ) ) {
             $this->render_card( __( 'Utilisateurs temps réel', 'analytic-suite' ), $realtime['active_users'] );
         }
+        echo '</div>';
+    }
+
+    /**
+     * Renders Google Analytics charts.
+     *
+     * @param array $ga GA data.
+     */
+    private function render_ga_charts( $ga ) {
+        echo '<div class="analytic-suite-chart-grid">';
+
+        if ( ! empty( $ga['traffic_sources'] ) ) {
+            $this->render_chart( __( 'Sources de trafic GA4', 'analytic-suite' ), 'doughnut', $ga['traffic_sources'] );
+        }
+
+        if ( ! empty( $ga['demographics']['devices'] ) ) {
+            $this->render_chart( __( 'Appareils GA4', 'analytic-suite' ), 'doughnut', $ga['demographics']['devices'] );
+        }
+
+        if ( ! empty( $ga['top_pages'] ) ) {
+            $this->render_chart( __( 'Pages vues GA4', 'analytic-suite' ), 'bar', $this->format_ga_page_chart_items( $ga['top_pages'] ) );
+        }
+
         echo '</div>';
     }
 
@@ -661,15 +696,25 @@ class Analytic_Suite_Admin {
         echo '<h2>' . esc_html__( 'Google Analytics 4', 'analytic-suite' ) . '</h2>';
 
         if ( isset( $_POST['analytic_suite_save_ga'] ) && check_admin_referer( 'analytic_suite_ga_settings' ) ) {
-            update_option( 'analytic_suite_ga_property_id', sanitize_text_field( wp_unslash( $_POST['ga_property_id'] ?? '' ) ) );
-            update_option( 'analytic_suite_ga_credentials', sanitize_text_field( wp_unslash( $_POST['ga_credentials'] ?? '' ) ) );
+            $property_id    = sanitize_text_field( wp_unslash( $_POST['ga_property_id'] ?? '' ) );
+            $credentials    = trim( wp_unslash( $_POST['ga_credentials'] ?? '' ) );
+            $credentials_ok = '' === $credentials || is_array( json_decode( $credentials, true ) );
 
-            if ( ! empty( $_POST['ga_clear_cache'] ) ) {
+            if ( $credentials_ok ) {
+                update_option( 'analytic_suite_ga_property_id', $property_id );
+                update_option( 'analytic_suite_ga_credentials', $credentials );
+            }
+
+            if ( ! empty( $_POST['ga_clear_cache'] ) || $credentials_ok ) {
                 $ga = new Analytic_Suite_Google_Analytics();
                 $ga->clear_cache();
             }
 
-            echo '<div class="notice notice-success"><p>' . esc_html__( 'Paramètres enregistrés.', 'analytic-suite' ) . '</div>';
+            if ( $credentials_ok ) {
+                echo '<div class="notice notice-success"><p>' . esc_html__( 'Paramètres enregistrés.', 'analytic-suite' ) . '</p></div>';
+            } else {
+                echo '<div class="notice notice-error"><p>' . esc_html__( 'La clé JSON Google Analytics est invalide. Les paramètres n’ont pas été enregistrés.', 'analytic-suite' ) . '</p></div>';
+            }
         }
 
         $ga = new Analytic_Suite_Google_Analytics();
@@ -684,7 +729,7 @@ class Analytic_Suite_Admin {
         echo '<p class="description">Ex: 1234567890 (dans GA4 > Administration > Propriété)</p></td></tr>';
 
         echo '<tr><th>' . esc_html__( 'Clé JSON Service Account', 'analytic-suite' ) . '</th>';
-        echo '<td><textarea name="ga_credentials" rows="6" class="large-text code" placeholder=\'{"type":"service_account",...}\'>' . esc_attr( get_option( 'analytic_suite_ga_credentials', '' ) ) . '</textarea>';
+        echo '<td><textarea name="ga_credentials" rows="6" class="large-text code" placeholder=\'{"type":"service_account",...}\'>' . esc_textarea( get_option( 'analytic_suite_ga_credentials', '' ) ) . '</textarea>';
         echo '<p class="description">' . esc_html__( 'Copier le contenu du fichier JSON du compte de service Google. Donner le rôle "Lecteur" à l\'email du service account dans GA4.', 'analytic-suite' ) . '</p></td></tr>';
 
         echo '<tr><th>' . esc_html__( 'Statut', 'analytic-suite' ) . '</th>';
@@ -844,6 +889,26 @@ class Analytic_Suite_Admin {
             }
 
             $chart_items[ $item['name'] ] = (float) $item[ $key ];
+        }
+
+        return $chart_items;
+    }
+
+    /**
+     * Formats GA pages as chart items.
+     *
+     * @param array $items GA page rows.
+     * @return array
+     */
+    private function format_ga_page_chart_items( $items ) {
+        $chart_items = array();
+
+        foreach ( array_slice( (array) $items, 0, 8 ) as $item ) {
+            if ( empty( $item['path'] ) || ! isset( $item['views'] ) ) {
+                continue;
+            }
+
+            $chart_items[ $item['path'] ] = (int) $item['views'];
         }
 
         return $chart_items;

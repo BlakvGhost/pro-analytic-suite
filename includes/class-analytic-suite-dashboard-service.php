@@ -116,6 +116,7 @@ class Analytic_Suite_Dashboard_Service {
             'bookings'     => $booking_metrics,
             'contents'     => $content_metrics,
             'ga'           => $this->get_ga_data( $filters ),
+            'ga_status'    => $this->ga->get_status(),
             'generated_at' => current_time( 'mysql' ),
         );
     }
@@ -130,6 +131,8 @@ class Analytic_Suite_Dashboard_Service {
         if ( ! $this->ga->is_configured() ) {
             return array(
                 'available'       => false,
+                'configured'      => false,
+                'status'          => $this->ga->get_status(),
                 'summary'         => array(),
                 'top_pages'       => array(),
                 'demographics'    => array(),
@@ -137,14 +140,20 @@ class Analytic_Suite_Dashboard_Service {
             );
         }
 
-        return array(
+        $data = array(
             'available'        => true,
+            'configured'       => true,
             'summary'         => $this->ga->get_summary( $filters ),
             'top_pages'       => $this->ga->get_page_views( $filters ),
             'demographics'   => $this->ga->get_demographics( $filters ),
             'traffic_sources' => $this->ga->get_traffic_sources( $filters ),
             'realtime'        => $this->ga->get_realtime_users(),
+            'status'          => $this->ga->get_status(),
         );
+
+        $data['available'] = empty( $data['status']['last_error'] );
+
+        return $data;
     }
 
     /**
@@ -155,6 +164,7 @@ class Analytic_Suite_Dashboard_Service {
     public function get_ga_status() {
         return array(
             'configured' => $this->ga->is_configured(),
+            'status'     => $this->ga->get_status(),
             'test'       => $this->ga->test_connection(),
         );
     }
