@@ -1,9 +1,5 @@
 # Projet : Plugin Analytics avancé WordPress pour WooCommerce & FluentBooking
 
-## Nom provisoire
-
-Pro Analytics Suite
-
 ---
 
 ## Contexte
