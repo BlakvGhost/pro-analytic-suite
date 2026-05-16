@@ -304,6 +304,7 @@ class Analytic_Suite_Google_Analytics {
             return array();
         }
 
+        $body = $this->normalize_report_body( $body );
         $url = "https://analyticsdata.googleapis.com/v1beta/properties/{$this->property_id}:runReport";
 
         $response = wp_remote_post(
@@ -351,6 +352,7 @@ class Analytic_Suite_Google_Analytics {
             return array();
         }
 
+        $body = $this->normalize_report_body( $body );
         $url = "https://analyticsdata.googleapis.com/v1beta/properties/{$this->property_id}:runRealtimeReport";
 
         $response = wp_remote_post(
@@ -380,6 +382,34 @@ class Analytic_Suite_Google_Analytics {
         $body = json_decode( $raw_body, true );
 
         return is_array( $body ) ? $body : array();
+    }
+
+    /**
+     * Normalizes GA4 Data API request body shorthand into object arrays.
+     *
+     * @param array $body Request body.
+     * @return array
+     */
+    private function normalize_report_body( $body ) {
+        if ( ! empty( $body['metrics'] ) ) {
+            $body['metrics'] = array_map(
+                function ( $metric ) {
+                    return is_array( $metric ) ? $metric : array( 'name' => (string) $metric );
+                },
+                $body['metrics']
+            );
+        }
+
+        if ( ! empty( $body['dimensions'] ) ) {
+            $body['dimensions'] = array_map(
+                function ( $dimension ) {
+                    return is_array( $dimension ) ? $dimension : array( 'name' => (string) $dimension );
+                },
+                $body['dimensions']
+            );
+        }
+
+        return $body;
     }
 
     /**
