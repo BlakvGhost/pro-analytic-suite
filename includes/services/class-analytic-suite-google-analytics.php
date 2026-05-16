@@ -548,6 +548,7 @@ class Analytic_Suite_Google_Analytics {
      */
     private function build_date_range( $filters ) {
         $today = current_time( 'Y-m-d' );
+        $period = isset( $filters['period'] ) ? $filters['period'] : '30-days';
 
         if ( ! empty( $filters['date_from'] ) && ! empty( $filters['date_to'] ) ) {
             return array(
@@ -557,9 +558,9 @@ class Analytic_Suite_Google_Analytics {
 
         $days = 30;
 
-        if ( '7-days' === $filters['period'] ) {
+        if ( '7-days' === $period ) {
             $days = 7;
-        } elseif ( 'year' === $filters['period'] ) {
+        } elseif ( 'year' === $period ) {
             return array(
                 array( 'startDate' => gmdate( 'Y-01-01' ), 'endDate' => $today ),
             );
