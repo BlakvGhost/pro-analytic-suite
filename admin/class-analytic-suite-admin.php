@@ -463,9 +463,7 @@ class Analytic_Suite_Admin {
             $this->render_chart( __( 'Appareils GA4', 'analytic-suite' ), 'doughnut', $ga['demographics']['devices'] );
         }
 
-        if ( ! empty( $ga['top_pages'] ) ) {
-            $this->render_chart( __( 'Pages vues GA4', 'analytic-suite' ), 'bar', $this->format_ga_page_chart_items( $ga['top_pages'] ) );
-        }
+        $this->render_chart( __( 'Pages vues GA4', 'analytic-suite' ), 'bar', $this->format_ga_page_chart_items( $ga['top_pages'] ?? array() ) );
 
         echo '</div>';
     }
@@ -476,13 +474,11 @@ class Analytic_Suite_Admin {
      * @param array $ga GA data.
      */
     private function render_ga_tables( $ga ) {
-        if ( ! empty( $ga['top_pages'] ) ) {
-            $page_list = array();
-            foreach ( $ga['top_pages'] as $page ) {
-                $page_list[ $page['path'] ] = $page['views'];
-            }
-            $this->render_breakdown_table( __( 'Pages les plus visitées', 'analytic-suite' ), $page_list );
+        $page_list = array();
+        foreach ( $ga['top_pages'] ?? array() as $page ) {
+            $page_list[ $page['path'] ] = $page['views'];
         }
+        $this->render_breakdown_table( __( 'Pages les plus visitées', 'analytic-suite' ), $page_list );
 
         if ( ! empty( $ga['demographics']['cities'] ) ) {
             $this->render_breakdown_table( __( 'Villes (GA4)', 'analytic-suite' ), $ga['demographics']['cities'] );

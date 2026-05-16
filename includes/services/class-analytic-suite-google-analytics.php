@@ -87,14 +87,14 @@ class Analytic_Suite_Google_Analytics {
             return $this->empty_response();
         }
 
-        $cache_key = $this->cache_key . 'pages_' . md5( wp_json_encode( $filters ) );
+        $cache_key = $this->cache_key . 'pages_unified_' . md5( wp_json_encode( $filters ) );
         $cached    = get_transient( $cache_key );
 
         if ( false !== $cached ) {
             return $cached;
         }
 
-        $dimensions = array( 'pagePath' );
+        $dimensions = array( 'unifiedPagePathScreen', 'pageTitle' );
         $metrics    = array( 'screenPageViews', 'sessions', 'averageSessionDuration', 'bounceRate' );
 
         $date_range = $this->build_date_range( $filters );
@@ -584,7 +584,7 @@ class Analytic_Suite_Google_Analytics {
         if ( ! empty( $filters['page_path'] ) ) {
             return array(
                 'filter' => array(
-                    'fieldName' => 'pagePath',
+                    'fieldName' => 'unifiedPagePathScreen',
                     'stringFilter' => array(
                         'matchType' => 'CONTAINS',
                         'value'     => $filters['page_path'],
@@ -610,11 +610,20 @@ class Analytic_Suite_Google_Analytics {
         $pages = array();
 
         foreach ( $response['rows'] as $row ) {
-            $dims   = $row['dimensionValues'];
-            $mets   = $row['metricValues'];
+            $dims  = $row['dimensionValues'];
+            $mets  = $row['metricValues'];
+            $path  = isset( $dims[0]['value'] ) ? (string) $dims[0]['value'] : '';
+            $title = isset( $dims[1]['value'] ) ? (string) $dims[1]['value'] : '';
+            $label = $this->format_page_label( $title, $path );
+
+            if ( '' === $label ) {
+                $label = __( 'Page non définie', 'analytic-suite' );
+            }
 
             $pages[] = array(
-                'path'       => $dims[0]['value'],
+                'path'       => $label,
+                'raw_path'   => $path,
+                'title'      => $title,
                 'views'      => (int) $mets[0]['value'],
                 'sessions'   => (int) $mets[1]['value'],
                 'avg_duration' => $this->format_duration( $mets[2]['value'] ),
@@ -623,6 +632,36 @@ class Analytic_Suite_Google_Analytics {
         }
 
         return $pages;
+    }
+
+    /**
+     * Builds a readable page label while ignoring GA4 "(not set)" values.
+     *
+     * @param string $title Page title.
+     * @param string $path  Page path.
+     * @return string
+     */
+    private function format_page_label( $title, $path ) {
+        $title = trim( (string) $title );
+        $path  = trim( (string) $path );
+
+        $invalid_values = array( '', '(not set)', '(not provided)' );
+        $title_is_valid = ! in_array( strtolower( $title ), $invalid_values, true );
+        $path_is_valid  = ! in_array( strtolower( $path ), $invalid_values, true );
+
+        if ( $title_is_valid && $path_is_valid ) {
+            return '/' === $path ? $title : $title . ' — ' . $path;
+        }
+
+        if ( $title_is_valid ) {
+            return $title;
+        }
+
+        if ( $path_is_valid ) {
+            return '/' === $path ? __( 'Accueil', 'analytic-suite' ) : $path;
+        }
+
+        return '';
     }
 
     /**
