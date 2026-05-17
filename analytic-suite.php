@@ -1,10 +1,11 @@
 <?php
 /**
  * Plugin Name: Pro Analytics Suite
- * Plugin URI: https://github.com/BlakvGhost/Pro-Analytics-Suite
+ * Plugin URI: https://github.com/BlakvGhost/pro-analytics-suite
  * Description: Tableau de bord analytique pour WooCommerce et FluentBooking.
  * Version: 0.1.1
  * Author: Kabirou ALASSANE
+ * Author URI: https://github.com/BlakvGhost
  * Text Domain: analytic-suite
  * Domain Path: /languages
  *
