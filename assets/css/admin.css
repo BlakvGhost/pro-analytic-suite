@@ -790,6 +790,45 @@
     margin-bottom: 18px;
 }
 
+.analytic-suite-public .as-public-ga-block {
+    background:
+        linear-gradient(135deg, rgba(15, 118, 110, 0.12), rgba(37, 99, 235, 0.08)),
+        rgba(255, 255, 255, 0.72);
+    border: 1px solid var(--as-public-border);
+    border-radius: 14px;
+    margin-bottom: 18px;
+    padding: 18px;
+}
+
+.analytic-suite-public .as-public-ga-heading {
+    margin-bottom: 16px;
+}
+
+.analytic-suite-public .as-public-ga-heading span {
+    color: var(--as-public-primary);
+    display: block;
+    font-size: 12px;
+    font-weight: 900;
+    margin-bottom: 7px;
+    text-transform: uppercase;
+}
+
+.analytic-suite-public .as-public-ga-heading h3 {
+    color: var(--as-public-ink);
+    font-size: 22px;
+    font-weight: 900;
+    line-height: 1.2;
+    margin: 0;
+}
+
+.analytic-suite-public .as-public-ga-heading p {
+    color: var(--as-public-muted);
+    font-size: 13px;
+    font-weight: 700;
+    margin: 7px 0 0;
+    overflow-wrap: anywhere;
+}
+
 .analytic-suite-public .as-public-ring-card,
 .analytic-suite-public .as-public-highlight {
     background: rgba(255, 255, 255, 0.78);

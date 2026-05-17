@@ -197,6 +197,12 @@ class Analytic_Suite {
         $engagement_rate = $this->calculate_percentage( $data['completed_content'], $data['total_users'] );
         $login_rate      = $this->calculate_percentage( $data['logged_in_users'], $data['total_users'] );
         $access_rate     = $this->calculate_percentage( $data['disability_count'], $data['total_users'] );
+        $public_page     = $this->get_public_ga_page();
+        $ga_data         = $this->get_public_ga_data( $public_page );
+        $age_breakdown   = $this->prefer_ga_breakdown( $ga_data['demographics']['ages'] ?? array(), $data['age_breakdown'] );
+        $sex_breakdown   = $this->prefer_ga_breakdown( $this->format_public_ga_genders( $ga_data['demographics']['genders'] ?? array() ), $data['sex_breakdown'] );
+        $location_breakdown = $this->prefer_ga_breakdown( $ga_data['demographics']['countries'] ?? array(), $data['location_breakdown'] );
+        $city_breakdown  = $ga_data['demographics']['cities'] ?? array();
 
         ob_start();
         ?>
@@ -221,6 +227,31 @@ class Analytic_Suite {
                 <?php $this->render_public_stat_card( __( 'Situation de handicap', 'analytic-suite' ), $data['disability_count'], number_format_i18n( $access_rate, 1 ) . '%' ); ?>
             </div>
 
+            <?php if ( ! empty( $ga_data['configured'] ) && ! empty( $public_page['path'] ) ) : ?>
+                <section class="as-public-ga-block">
+                    <div class="as-public-ga-heading">
+                        <span><?php esc_html_e( 'Google Analytics 4', 'analytic-suite' ); ?></span>
+                        <h3><?php echo esc_html( sprintf( __( 'Performance de la page : %s', 'analytic-suite' ), $public_page['title'] ) ); ?></h3>
+                        <p><?php echo esc_html( $public_page['path'] ); ?></p>
+                    </div>
+                    <div class="as-public-grid">
+                        <?php $this->render_public_stat_card( __( 'Visiteurs actifs', 'analytic-suite' ), $ga_data['summary']['active_users'], __( '30 derniers jours', 'analytic-suite' ) ); ?>
+                        <?php $this->render_public_stat_card( __( 'Sessions', 'analytic-suite' ), $ga_data['summary']['sessions'], __( 'Trafic page', 'analytic-suite' ) ); ?>
+                        <?php $this->render_public_stat_card( __( 'Pages vues', 'analytic-suite' ), $ga_data['summary']['page_views'], __( 'Vues filtrées', 'analytic-suite' ) ); ?>
+                        <?php $this->render_public_stat_card( __( 'Nouveaux utilisateurs', 'analytic-suite' ), $ga_data['summary']['new_users'], $ga_data['summary']['avg_duration'] ); ?>
+                    </div>
+                    <div class="as-public-charts">
+                        <?php $this->render_public_chart( __( 'Indicateurs GA4 de la page', 'analytic-suite' ), 'bar', array(
+                            __( 'Utilisateurs', 'analytic-suite' ) => $ga_data['summary']['active_users'],
+                            __( 'Sessions', 'analytic-suite' )     => $ga_data['summary']['sessions'],
+                            __( 'Pages vues', 'analytic-suite' )   => $ga_data['summary']['page_views'],
+                            __( 'Nouveaux', 'analytic-suite' )     => $ga_data['summary']['new_users'],
+                        ) ); ?>
+                        <?php $this->render_public_chart( __( 'Pages suivies GA4', 'analytic-suite' ), 'bar', $this->format_public_ga_pages( $ga_data['pages'] ) ); ?>
+                    </div>
+                </section>
+            <?php endif; ?>
+
             <div class="as-public-insights">
                 <div class="as-public-ring-card">
                     <span><?php esc_html_e( 'Taux de connexion', 'analytic-suite' ); ?></span>
@@ -242,9 +273,10 @@ class Analytic_Suite {
             </div>
 
             <div class="as-public-charts">
-                <?php $this->render_public_chart( __( 'Répartition par âge', 'analytic-suite' ), 'bar', $data['age_breakdown'] ); ?>
-                <?php $this->render_public_chart( __( 'Répartition par sexe', 'analytic-suite' ), 'doughnut', $data['sex_breakdown'] ); ?>
-                <?php $this->render_public_chart( __( 'Localisation', 'analytic-suite' ), 'doughnut', $data['location_breakdown'] ); ?>
+                <?php $this->render_public_chart( __( 'Répartition par âge', 'analytic-suite' ), 'bar', $age_breakdown ); ?>
+                <?php $this->render_public_chart( __( 'Répartition par sexe', 'analytic-suite' ), 'doughnut', $sex_breakdown ); ?>
+                <?php $this->render_public_chart( __( 'Localisation', 'analytic-suite' ), 'doughnut', $location_breakdown ); ?>
+                <?php $this->render_public_chart( __( 'Villes', 'analytic-suite' ), 'bar', $city_breakdown ); ?>
                 <?php $this->render_public_chart( __( 'Parcours utilisateur', 'analytic-suite' ), 'bar', array(
                     __( 'Inscrits', 'analytic-suite' )   => $data['total_users'],
                     __( 'Connectés', 'analytic-suite' )  => $data['logged_in_users'],
@@ -254,9 +286,10 @@ class Analytic_Suite {
             </div>
 
             <div class="as-public-sections">
-                <?php $this->render_public_breakdown( __( 'Âge', 'analytic-suite' ), $data['age_breakdown'] ); ?>
-                <?php $this->render_public_breakdown( __( 'Sexe', 'analytic-suite' ), $data['sex_breakdown'] ); ?>
-                <?php $this->render_public_breakdown( __( 'Localisation', 'analytic-suite' ), $data['location_breakdown'] ); ?>
+                <?php $this->render_public_breakdown( __( 'Âge', 'analytic-suite' ), $age_breakdown ); ?>
+                <?php $this->render_public_breakdown( __( 'Sexe', 'analytic-suite' ), $sex_breakdown ); ?>
+                <?php $this->render_public_breakdown( __( 'Localisation', 'analytic-suite' ), $location_breakdown ); ?>
+                <?php $this->render_public_breakdown( __( 'Villes', 'analytic-suite' ), $city_breakdown ); ?>
             </div>
         </div>
         <?php
@@ -326,6 +359,115 @@ class Analytic_Suite {
             echo '</div>';
         }
         echo '</div></section>';
+    }
+
+    /**
+     * Gets the selected public GA page.
+     *
+     * @return array
+     */
+    private function get_public_ga_page() {
+        $page_id = absint( get_option( 'analytic_suite_public_ga_page_id', 0 ) );
+
+        if ( ! $page_id ) {
+            return array(
+                'id'    => 0,
+                'title' => '',
+                'path'  => '',
+            );
+        }
+
+        $permalink = get_permalink( $page_id );
+        $path      = $permalink ? wp_parse_url( $permalink, PHP_URL_PATH ) : '';
+
+        return array(
+            'id'    => $page_id,
+            'title' => get_the_title( $page_id ),
+            'path'  => $path ? $path : '/',
+        );
+    }
+
+    /**
+     * Gets GA data for the selected public page.
+     *
+     * @param array $page Page data.
+     * @return array
+     */
+    private function get_public_ga_data( $page ) {
+        $ga = new Analytic_Suite_Google_Analytics();
+
+        if ( empty( $page['path'] ) || ! $ga->is_configured() ) {
+            return array(
+                'configured'   => $ga->is_configured(),
+                'summary'      => array(),
+                'pages'        => array(),
+                'demographics' => array(),
+            );
+        }
+
+        $filters = array(
+            'period'    => '30-days',
+            'page_path' => $page['path'],
+        );
+
+        return array(
+            'configured'   => true,
+            'summary'      => $ga->get_summary( $filters ),
+            'pages'        => $ga->get_page_views( $filters ),
+            'demographics' => $ga->get_demographics( $filters ),
+        );
+    }
+
+    /**
+     * Uses GA data when available, otherwise keeps local fallback data.
+     *
+     * @param array $ga_items       GA items.
+     * @param array $fallback_items Fallback items.
+     * @return array
+     */
+    private function prefer_ga_breakdown( $ga_items, $fallback_items ) {
+        return ! empty( $ga_items ) ? $ga_items : $fallback_items;
+    }
+
+    /**
+     * Formats GA gender labels for public display.
+     *
+     * @param array $items GA gender items.
+     * @return array
+     */
+    private function format_public_ga_genders( $items ) {
+        $labels = array(
+            'male'   => __( 'Homme', 'analytic-suite' ),
+            'female' => __( 'Femme', 'analytic-suite' ),
+        );
+        $formatted = array();
+
+        foreach ( (array) $items as $label => $value ) {
+            $key = strtolower( (string) $label );
+            $formatted[ $labels[ $key ] ?? ucfirst( (string) $label ) ] = $value;
+        }
+
+        return $formatted;
+    }
+
+    /**
+     * Formats GA pages for public charts.
+     *
+     * @param array $pages Page rows.
+     * @return array
+     */
+    private function format_public_ga_pages( $pages ) {
+        $items = array();
+
+        foreach ( array_slice( (array) $pages, 0, 6 ) as $page ) {
+            if ( empty( $page['path'] ) || ! isset( $page['views'] ) ) {
+                continue;
+            }
+
+            $items[ $page['path'] ] = (int) $page['views'];
+        }
+
+        return $items;
     }
 
     /**

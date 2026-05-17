@@ -742,6 +742,7 @@ class Analytic_Suite_Admin {
             if ( $credentials_ok ) {
                 update_option( 'analytic_suite_ga_property_id', $property_id );
                 update_option( 'analytic_suite_ga_credentials', $credentials );
+                update_option( 'analytic_suite_public_ga_page_id', absint( wp_unslash( $_POST['public_ga_page_id'] ?? 0 ) ) );
             }
 
             if ( ! empty( $_POST['ga_clear_cache'] ) || $credentials_ok ) {
@@ -778,6 +779,19 @@ class Analytic_Suite_Admin {
         } else {
             echo '<span style="color: #b42318;">✗ ' . esc_html( $test['message'] ) . '</span>';
         }
+        echo '</td></tr>';
+
+        echo '<tr><th>' . esc_html__( 'Page publique suivie', 'analytic-suite' ) . '</th>';
+        echo '<td>';
+        wp_dropdown_pages(
+            array(
+                'name'              => 'public_ga_page_id',
+                'selected'          => absint( get_option( 'analytic_suite_public_ga_page_id', 0 ) ),
+                'show_option_none'  => __( 'Aucune page sélectionnée', 'analytic-suite' ),
+                'option_none_value' => 0,
+            )
+        );
+        echo '<p class="description">' . esc_html__( 'Le shortcode public affichera les statistiques GA4 de cette page uniquement.', 'analytic-suite' ) . '</p>';
         echo '</td></tr>';
 
         echo '<tr><th></th><td>';

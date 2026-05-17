@@ -97,7 +97,7 @@ class Analytic_Suite_Google_Analytics {
         $dimensions = array( 'unifiedPagePathScreen', 'pageTitle' );
         $metrics    = array( 'screenPageViews', 'sessions', 'averageSessionDuration', 'bounceRate' );
 
-        $date_range = $this->build_date_range( $filters );
+        $date_range       = $this->build_date_range( $filters );
         $dimension_filter = $this->build_dimension_filter( $filters );
 
         $response = $this->run_report(
@@ -130,44 +130,70 @@ class Analytic_Suite_Google_Analytics {
             return $this->empty_response();
         }
 
-        $cache_key = $this->cache_key . 'demographics_' . md5( wp_json_encode( $filters ) );
+        $cache_key = $this->cache_key . 'demographics_v2_' . md5( wp_json_encode( $filters ) );
         $cached    = get_transient( $cache_key );
 
         if ( false !== $cached ) {
             return $cached;
         }
 
-        $date_range = $this->build_date_range( $filters );
+        $date_range       = $this->build_date_range( $filters );
+        $dimension_filter = $this->build_dimension_filter( $filters );
 
         $city_response = $this->run_report(
             array(
-                'dimensions'  => array( 'city' ),
-                'metrics'    => array( 'activeUsers' ),
-                'dateRanges' => $date_range,
-                'orderBys'   => array(
+                'dimensions'      => array( 'city' ),
+                'metrics'         => array( 'activeUsers' ),
+                'dateRanges'      => $date_range,
+                'dimensionFilter' => $dimension_filter,
+                'orderBys'        => array(
                     array( 'metric' => array( 'metricName' => 'activeUsers' ), 'desc' => true ),
                 ),
-                'limit'      => 20,
+                'limit'           => 20,
             )
         );
 
         $country_response = $this->run_report(
             array(
-                'dimensions'  => array( 'country' ),
-                'metrics'    => array( 'activeUsers' ),
-                'dateRanges' => $date_range,
-                'orderBys'   => array(
+                'dimensions'      => array( 'country' ),
+                'metrics'         => array( 'activeUsers' ),
+                'dateRanges'      => $date_range,
+                'dimensionFilter' => $dimension_filter,
+                'orderBys'        => array(
                     array( 'metric' => array( 'metricName' => 'activeUsers' ), 'desc' => true ),
                 ),
-                'limit'      => 10,
+                'limit'           => 10,
             )
         );
 
         $device_response = $this->run_report(
             array(
-                'dimensions'  => array( 'deviceCategory' ),
-                'metrics'    => array( 'activeUsers', 'sessions' ),
-                'dateRanges' => $date_range,
+                'dimensions'      => array( 'deviceCategory' ),
+                'metrics'         => array( 'activeUsers', 'sessions' ),
+                'dateRanges'      => $date_range,
+                'dimensionFilter' => $dimension_filter,
+            )
+        );
+
+        $age_response = $this->run_report(
+            array(
+                'dimensions'      => array( 'userAgeBracket' ),
+                'metrics'         => array( 'activeUsers' ),
+                'dateRanges'      => $date_range,
+                'dimensionFilter' => $dimension_filter,
+                'orderBys'        => array(
+                    array( 'metric' => array( 'metricName' => 'activeUsers' ), 'desc' => true ),
+                ),
+                'limit'           => 12,
+            )
+        );
+
+        $gender_response = $this->run_report(
+            array(
+                'dimensions'      => array( 'userGender' ),
+                'metrics'         => array( 'activeUsers' ),
+                'dateRanges'      => $date_range,
+                'dimensionFilter' => $dimension_filter,
             )
         );
 
@@ -175,6 +201,8 @@ class Analytic_Suite_Google_Analytics {
             'cities'    => $this->parse_dimension_response( $city_response, 'city', 'activeUsers' ),
             'countries' => $this->parse_dimension_response( $country_response, 'country', 'activeUsers' ),
             'devices'   => $this->parse_dimension_response( $device_response, 'deviceCategory', 'activeUsers' ),
+            'ages'      => $this->parse_dimension_response( $age_response, 'userAgeBracket', 'activeUsers' ),
+            'genders'   => $this->parse_dimension_response( $gender_response, 'userGender', 'activeUsers' ),
         );
 
         set_transient( $cache_key, $result, HOUR_IN_SECONDS );
@@ -256,7 +284,8 @@ class Analytic_Suite_Google_Analytics {
             return $this->empty_summary();
         }
 
-        $date_range = $this->build_date_range( $filters );
+        $date_range       = $this->build_date_range( $filters );
+        $dimension_filter = $this->build_dimension_filter( $filters );
 
         $response = $this->run_report(
             array(
@@ -269,6 +298,7 @@ class Analytic_Suite_Google_Analytics {
                     'newUsers',
                 ),
                 'dateRanges' => $date_range,
+                'dimensionFilter' => $dimension_filter,
             )
         );
 
