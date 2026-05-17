@@ -105,10 +105,13 @@ class Analytic_Suite_Admin {
         $title         = isset( $titles[ $view ] ) ? $titles[ $view ] : $titles['dashboard'];
 
         echo '<div class="wrap analytic-suite">';
-        echo '<h1>' . esc_html( $title ) . '</h1>';
+        $this->render_page_header( $view, $title );
         $this->render_tabs( $view );
 
+        echo '<div class="analytic-suite-notices">';
         $this->render_notices( $data );
+        echo '</div>';
+
         $this->render_filters( $filters, $filter_options, $view );
 
         if ( 'dashboard' === $view ) {
@@ -154,6 +157,48 @@ class Analytic_Suite_Admin {
     }
 
     /**
+     * Gets page descriptions.
+     *
+     * @return array
+     */
+    private function get_page_descriptions() {
+        return array(
+            'dashboard' => __( 'Vue synthétique des ventes, réservations, contenus et indicateurs clés.', 'analytic-suite' ),
+            'clients'   => __( 'Analyse des clients, de la fidélisation et des profils les plus actifs.', 'analytic-suite' ),
+            'bookings'  => __( 'Suivi des réservations, annulations, types de rendez-vous et durées.', 'analytic-suite' ),
+            'orders'    => __( 'Lecture des commandes WooCommerce, produits vendus et chiffre d’affaires.', 'analytic-suite' ),
+            'contents'  => __( 'Performance des masterclass, livres blancs et contenus suivis.', 'analytic-suite' ),
+            'google-analytics' => __( 'Trafic GA4, acquisition, appareils et pages les plus consultées.', 'analytic-suite' ),
+            'reports'   => __( 'Rapport de synthèse prêt pour la consultation et l’export.', 'analytic-suite' ),
+            'exports'   => __( 'Téléchargement des données filtrées en CSV, Excel ou PDF.', 'analytic-suite' ),
+            'settings'  => __( 'Configuration des intégrations, du shortcode public et de l’apparence.', 'analytic-suite' ),
+        );
+    }
+
+    /**
+     * Renders page header.
+     *
+     * @param string $view  Current view.
+     * @param string $title Page title.
+     */
+    private function render_page_header( $view, $title ) {
+        $descriptions = $this->get_page_descriptions();
+        $description  = $descriptions[ $view ] ?? $descriptions['dashboard'];
+        $badge        = get_option( 'analytic_suite_header_badge', __( 'Pro Analytics', 'analytic-suite' ) );
+
+        echo '<header class="analytic-suite-header">';
+        echo '<div>';
+        echo '<h1>' . esc_html( $title ) . '</h1>';
+        echo '<p>' . esc_html( $description ) . '</p>';
+        echo '</div>';
+        echo '<div class="analytic-suite-header-meta">';
+        echo '<span>' . esc_html( $badge ) . '</span>';
+        echo '<strong>' . esc_html( sprintf( __( 'Version %s', 'analytic-suite' ), ANALYTIC_SUITE_VERSION ) ) . '</strong>';
+        echo '</div>';
+        echo '</header>';
+    }
+
+    /**
      * Renders top navigation tabs.
      *
      * @param string $current_view Current view.
@@ -193,22 +238,32 @@ class Analytic_Suite_Admin {
         $ga_status = $data['ga']['status'] ?? ( $data['ga_status'] ?? array() );
 
         if ( empty( $data['orders']['available'] ) ) {
-            echo '<div class="notice notice-warning"><p>' . esc_html__( 'WooCommerce n’est pas détecté. Les métriques de commandes resteront à zéro.', 'analytic-suite' ) . '</p></div>';
+            $this->render_alert( 'warning', __( 'WooCommerce n’est pas détecté. Les métriques de commandes resteront à zéro.', 'analytic-suite' ) );
         }
 
         if ( empty( $data['bookings']['available'] ) ) {
-            echo '<div class="notice notice-warning"><p>' . esc_html__( 'Les tables FluentBooking ne sont pas détectées. Les métriques de réservations resteront à zéro.', 'analytic-suite' ) . '</p></div>';
+            $this->render_alert( 'warning', __( 'Les tables FluentBooking ne sont pas détectées. Les métriques de réservations resteront à zéro.', 'analytic-suite' ) );
         }
 
         if ( empty( $data['contents']['available'] ) ) {
-            echo '<div class="notice notice-info"><p>' . esc_html__( 'Les tables ou post types de contenus ne sont pas détectés. Les métriques Masterclass/Livres resteront à zéro.', 'analytic-suite' ) . '</p></div>';
+            $this->render_alert( 'info', __( 'Les tables ou post types de contenus ne sont pas détectés. Les métriques Masterclass/Livres resteront à zéro.', 'analytic-suite' ) );
         }
 
         if ( empty( $ga_status['configured'] ) ) {
-            echo '<div class="notice notice-info"><p>' . esc_html__( 'Google Analytics 4 n’est pas configuré. Ajoutez le Property ID et la clé JSON dans Paramètres pour afficher les données GA.', 'analytic-suite' ) . '</p></div>';
+            $this->render_alert( 'info', __( 'Google Analytics 4 n’est pas configuré. Ajoutez le Property ID et la clé JSON dans Paramètres pour afficher les données GA.', 'analytic-suite' ) );
         } elseif ( ! empty( $ga_status['last_error'] ) ) {
-            echo '<div class="notice notice-error"><p>' . esc_html( sprintf( __( 'Google Analytics 4 ne répond pas : %s', 'analytic-suite' ), $ga_status['last_error'] ) ) . '</p></div>';
+            $this->render_alert( 'error', sprintf( __( 'Google Analytics 4 ne répond pas : %s', 'analytic-suite' ), $ga_status['last_error'] ) );
         }
+    }
+
+    /**
+     * Renders a plugin-scoped alert.
+     *
+     * @param string $type    Alert type.
+     * @param string $message Message.
+     */
+    private function render_alert( $type, $message ) {
+        echo '<div class="analytic-suite-alert analytic-suite-alert-' . esc_attr( $type ) . '"><p>' . esc_html( $message ) . '</p></div>';
     }
 
     /**
@@ -742,8 +797,10 @@ class Analytic_Suite_Admin {
             if ( $credentials_ok ) {
                 update_option( 'analytic_suite_ga_property_id', $property_id );
                 update_option( 'analytic_suite_ga_credentials', $credentials );
-                update_option( 'analytic_suite_public_ga_page_id', absint( wp_unslash( $_POST['public_ga_page_id'] ?? 0 ) ) );
             }
+
+            update_option( 'analytic_suite_public_ga_page_id', absint( wp_unslash( $_POST['public_ga_page_id'] ?? 0 ) ) );
+            $this->save_appearance_settings( $_POST );
 
             if ( ! empty( $_POST['ga_clear_cache'] ) || $credentials_ok ) {
                 $ga = new Analytic_Suite_Google_Analytics();
@@ -800,8 +857,62 @@ class Analytic_Suite_Admin {
 
         echo '</tbody></table>';
 
+        $this->render_appearance_settings();
+
         submit_button( __( 'Enregistrer', 'analytic-suite' ), 'primary', 'analytic_suite_save_ga', false );
         echo '</form></div>';
+    }
+
+    /**
+     * Saves appearance settings.
+     *
+     * @param array $source Posted values.
+     */
+    private function save_appearance_settings( $source ) {
+        $color_options = array(
+            'analytic_suite_color_primary' => '#0f766e',
+            'analytic_suite_color_accent'  => '#d69a3a',
+            'analytic_suite_color_header'  => '#10231f',
+            'analytic_suite_color_surface' => '#ffffff',
+        );
+
+        foreach ( $color_options as $option => $default ) {
+            $value = sanitize_hex_color( wp_unslash( $source[ $option ] ?? $default ) );
+            update_option( $option, $value ? $value : $default );
+        }
+
+        update_option( 'analytic_suite_header_badge', sanitize_text_field( wp_unslash( $source['analytic_suite_header_badge'] ?? 'Pro Analytics' ) ) );
+    }
+
+    /**
+     * Renders appearance settings.
+     */
+    private function render_appearance_settings() {
+        echo '<div class="analytic-suite-settings-section">';
+        echo '<h2>' . esc_html__( 'Apparence', 'analytic-suite' ) . '</h2>';
+        echo '<table class="widefat"><tbody>';
+        $this->render_color_setting( 'analytic_suite_color_primary', __( 'Couleur principale', 'analytic-suite' ), '#0f766e' );
+        $this->render_color_setting( 'analytic_suite_color_accent', __( 'Couleur accent', 'analytic-suite' ), '#d69a3a' );
+        $this->render_color_setting( 'analytic_suite_color_header', __( 'Fond du header admin', 'analytic-suite' ), '#10231f' );
+        $this->render_color_setting( 'analytic_suite_color_surface', __( 'Surface des cartes', 'analytic-suite' ), '#ffffff' );
+        echo '<tr><th>' . esc_html__( 'Badge du header', 'analytic-suite' ) . '</th>';
+        echo '<td><input type="text" name="analytic_suite_header_badge" value="' . esc_attr( get_option( 'analytic_suite_header_badge', 'Pro Analytics' ) ) . '" class="regular-text">';
+        echo '<p class="description">' . esc_html__( 'Texte affiché dans le badge du header admin.', 'analytic-suite' ) . '</p></td></tr>';
+        echo '</tbody></table>';
+        echo '</div>';
+    }
+
+    /**
+     * Renders a color field.
+     *
+     * @param string $option  Option name.
+     * @param string $label   Label.
+     * @param string $default Default color.
+     */
+    private function render_color_setting( $option, $label, $default ) {
+        $value = sanitize_hex_color( get_option( $option, $default ) );
+        echo '<tr><th>' . esc_html( $label ) . '</th>';
+        echo '<td><input type="color" name="' . esc_attr( $option ) . '" value="' . esc_attr( $value ? $value : $default ) . '"></td></tr>';
     }
 
     /**

@@ -112,6 +112,8 @@ class Analytic_Suite {
             ANALYTIC_SUITE_VERSION
         );
 
+        wp_add_inline_style( 'analytic-suite-admin', $this->get_appearance_css() );
+
         wp_enqueue_script(
             'analytic-suite-admin',
             ANALYTIC_SUITE_URL . 'assets/js/admin.js',
@@ -132,6 +134,8 @@ class Analytic_Suite {
             ANALYTIC_SUITE_VERSION
         );
 
+        wp_add_inline_style( 'analytic-suite-public', $this->get_appearance_css() );
+
         wp_enqueue_script(
             'analytic-suite-public',
             ANALYTIC_SUITE_URL . 'assets/js/admin.js',
@@ -147,6 +151,80 @@ class Analytic_Suite {
     public function export_csv() {
         $controller = new Analytic_Suite_Export_Controller( $this->get_dashboard_service() );
         $controller->export_csv();
+    }
+
+    /**
+     * Builds CSS variables from appearance settings.
+     *
+     * @return string
+     */
+    private function get_appearance_css() {
+        $primary = $this->sanitize_hex_option( 'analytic_suite_color_primary', '#0f766e' );
+        $accent  = $this->sanitize_hex_option( 'analytic_suite_color_accent', '#d69a3a' );
+        $header  = $this->sanitize_hex_option( 'analytic_suite_color_header', '#10231f' );
+        $surface = $this->sanitize_hex_option( 'analytic_suite_color_surface', '#ffffff' );
+
+        return sprintf(
+            '.analytic-suite,.analytic-suite-public{--as-primary:%1$s;--as-primary-dark:%2$s;--as-accent:%3$s;--as-surface:%4$s;--as-header-bg:%5$s;--as-public-primary:%1$s;--as-public-accent:%3$s;--as-public-surface:%6$s;}',
+            esc_html( $primary ),
+            esc_html( $this->darken_hex_color( $primary, 18 ) ),
+            esc_html( $accent ),
+            esc_html( $surface ),
+            esc_html( $header ),
+            esc_html( $this->hex_to_rgba( $surface, 0.92 ) )
+        );
+    }
+
+    /**
+     * Gets a sanitized hex color option.
+     *
+     * @param string $option  Option name.
+     * @param string $default Default value.
+     * @return string
+     */
+    private function sanitize_hex_option( $option, $default ) {
+        $value = sanitize_hex_color( get_option( $option, $default ) );
+
+        return $value ? $value : $default;
+    }
+
+    /**
+     * Darkens a hex color.
+     *
+     * @param string $hex     Hex color.
+     * @param int    $percent Darken percent.
+     * @return string
+     */
+    private function darken_hex_color( $hex, $percent ) {
+        $hex = ltrim( $hex, '#' );
+        $percent = max( 0, min( 100, (int) $percent ) );
+        $factor = ( 100 - $percent ) / 100;
+
+        $red   = (int) floor( hexdec( substr( $hex, 0, 2 ) ) * $factor );
+        $green = (int) floor( hexdec( substr( $hex, 2, 2 ) ) * $factor );
+        $blue  = (int) floor( hexdec( substr( $hex, 4, 2 ) ) * $factor );
+
+        return sprintf( '#%02x%02x%02x', $red, $green, $blue );
+    }
+
+    /**
+     * Converts a hex color to rgba.
+     *
+     * @param string $hex   Hex color.
+     * @param float  $alpha Alpha.
+     * @return string
+     */
+    private function hex_to_rgba( $hex, $alpha ) {
+        $hex = ltrim( $hex, '#' );
+        $alpha = max( 0, min( 1, (float) $alpha ) );
+
+        return sprintf(
+            'rgba(%d,%d,%d,%s)',
+            hexdec( substr( $hex, 0, 2 ) ),
+            hexdec( substr( $hex, 2, 2 ) ),
+            hexdec( substr( $hex, 4, 2 ) ),
+            rtrim( rtrim( number_format( $alpha, 2, '.', '' ), '0' ), '.' )
+        );
     }
 
     /**
