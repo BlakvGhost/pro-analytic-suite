@@ -1,302 +1,108 @@
-# Projet : Plugin Analytics avancé WordPress pour WooCommerce & FluentBooking
+# Pro Analytics Suite
 
----
+Plugin WordPress d'analytics premium pour centraliser les ventes WooCommerce, les reservations FluentBooking, les contenus suivis et les donnees Google Analytics 4.
 
-## Contexte
+## Fonctionnalites
 
-Le site utilise WordPress avec WooCommerce pour la gestion des commandes et FluentBooking pour la gestion des réservations. Les outils natifs fournissent des statistiques limitées et ne permettent pas une analyse avancée du comportement client ni une consolidation complète des données.
+- Dashboard admin organise par sections : vue d'ensemble, activite, reservations, contenus et details operationnels.
+- Onglets dedies : Clients, Reservations, Commandes, Contenus, Google Analytics, Rapports, Exports et Parametres.
+- Graphiques interactifs avec fallback HTML si JavaScript ne s'execute pas.
+- Integration WooCommerce : commandes, chiffre d'affaires, panier moyen, produits, statuts, clients recurrents.
+- Integration FluentBooking : reservations, annulations, types, durees, pays, civilite.
+- Integration contenus : masterclass, livres blancs, suivis, consultations et tops contenus.
+- Integration GA4 via Service Account : utilisateurs actifs, sessions, pages vues, sources de trafic, appareils, pays, villes, ages et sexes quand disponibles.
+- Shortcode public `[analytics_public]` avec interface premium et statistiques GA4 filtrees sur une page selectionnee.
+- Exports CSV, Excel et PDF.
+- Personnalisation de l'apparence depuis les parametres : couleurs principales, accent, header, surfaces et badge.
 
-L'objectif est de développer un plugin personnalisé capable de centraliser, traiter et visualiser les données liées aux commandes, réservations et comportements clients.
+## Installation
 
-Le système doit être évolutif afin de permettre l'ajout futur de nouveaux indicateurs et règles métier.
+1. Copier le dossier du plugin dans `wp-content/plugins/analytic-suite`.
+2. Activer le plugin depuis WordPress ou avec WP-CLI :
 
----
+```bash
+wp plugin activate analytic-suite
+```
 
-# Objectifs principaux
+3. Ouvrir `Pro Analytics` dans l'administration WordPress.
 
-Créer un tableau de bord analytique centralisé permettant :
+## Configuration GA4
 
-* de suivre les performances commerciales
-* d'analyser les réservations
-* d'identifier les comportements clients
-* de mesurer la récurrence des achats
-* d'analyser les annulations
-* de produire des rapports exportables
-* de filtrer les données selon plusieurs critères
+Dans `Pro Analytics > Parametres` :
 
----
+1. Renseigner le `Property ID GA4`.
+2. Coller le JSON complet du Service Account Google.
+3. Donner a l'email du Service Account un acces lecteur sur la propriete GA4.
+4. Selectionner la page publique suivie pour le shortcode.
+5. Cocher `Vider le cache GA`, puis enregistrer.
 
-# Sources de données
+Les donnees demographiques GA4, comme l'age et le sexe, dependent de la configuration GA4, du consentement utilisateur, de Google Signals et des seuils de confidentialite Google. Si GA4 ne renvoie rien, le shortcode conserve les donnees WordPress disponibles en fallback.
 
-## WooCommerce
+## Shortcode Public
 
-Données récupérées :
+Utiliser le shortcode suivant dans une page WordPress :
 
-* commandes
-* clients
-* produits
-* paniers
-* montants
-* pays
-* informations client
-* statuts de commandes
+```text
+[analytics_public]
+```
 
-## FluentBooking
+Le shortcode affiche :
 
-Données récupérées :
+- statistiques utilisateurs issues de WordPress,
+- progression et engagement contenus,
+- donnees GA4 de la page selectionnee dans les parametres,
+- repartitions age, sexe, pays et villes si GA4 les fournit,
+- graphiques interactifs et listes detaillees.
 
-* réservations
-* types de réservation
-* durée
-* statut
-* date
-* client
-* services réservés
+## Structure
 
----
+```text
+analytic-suite.php
+includes/
+  class-analytic-suite.php
+  class-analytic-suite-dashboard-service.php
+  repositories/
+  services/
+admin/
+  class-analytic-suite-admin.php
+  class-analytic-suite-export-controller.php
+assets/
+  css/admin.css
+  js/admin.js
+tests/
+```
 
-# Fonctionnalités principales
+## Commandes Dev
 
-## Dashboard principal
+Verifier la syntaxe PHP :
 
-Affichage sous forme de :
+```bash
+php -l analytic-suite.php
+php -l includes/class-analytic-suite.php
+php -l admin/class-analytic-suite-admin.php
+php -l includes/services/class-analytic-suite-google-analytics.php
+```
 
-* cartes statistiques
-* tableaux
-* graphiques
-* diagrammes
-* filtres dynamiques
+Verifier l'etat Git :
 
-Exemples :
+```bash
+git status --short
+```
 
-* nombre total de réservations
-* nombre total de commandes
-* chiffre d'affaires
-* panier moyen
-* clients uniques
-* taux d'annulation
-* nombre de clients récurrents
+Activer le plugin avec WP-CLI :
 
----
+```bash
+wp plugin activate analytic-suite
+```
 
-## Statistiques clients
+## Securite
 
-Le système devra pouvoir afficher :
+- Les actions admin utilisent les capacites WordPress du plugin.
+- Les entrees `$_GET` et `$_POST` sont sanitisees.
+- Les sorties HTML sont echappees.
+- Les exports verifient les permissions.
+- Les identifiants et donnees clients ne doivent pas etre commits.
 
-### Clients uniques
+## Notes
 
-Exemple :
-
-500 clients uniques
-
----
-
-### Clients récurrents
-
-Exemple :
-
-Sur 500 clients :
-
-* 210 ont effectué plusieurs achats
-* 290 n'ont acheté qu'une seule fois
-
----
-
-### Taux de fidélisation
-
-Calcul :
-
-Clients revenus / clients totaux
-
----
-
-### Civilité avec le plus de réservations
-
-Exemple :
-
-* M : 58%
-* Mme : 40%
-* Autres : 2%
-
----
-
-### Pays avec le plus de réservations
-
-Exemple :
-
-* France
-* Bénin
-* Belgique
-* Canada
-
----
-
-# Statistiques commandes
-
-## Panier moyen
-
-Calcul :
-
-Total ventes / nombre commandes
-
----
-
-## Paniers abandonnés
-
-Exemple :
-
-* Nombre de paniers abandonnés
-* Taux d'abandon
-
----
-
-## Répartition des ventes
-
-Par :
-
-* produit
-* catégorie
-* pays
-* période
-
----
-
-# Statistiques réservations
-
-## Répartition des types de réservation
-
-Exemple :
-
-500 réservations :
-
-* 320 dîners
-* 180 sessions
-
----
-
-## Analyse des durées
-
-Exemple :
-
-* Sessions de 30 min : 280
-* Sessions de 1h : 120
-* Sessions de 2h : 45
-
----
-
-## Analyse des annulations
-
-Exemple :
-
-1216 réservations :
-
-* 710 annulées
-* 506 validées
-
-Le système devra permettre :
-
-* d'inclure ou exclure certains services
-* d'exclure certains types comme "Diagnostic stratégique"
-
----
-
-# Système de filtres
-
-Filtres disponibles :
-
-* période
-* date personnalisée
-* pays
-* statut
-* type de réservation
-* durée
-* produit
-* catégorie
-* civilité
-* client
-
----
-
-# Exportation des données
-
-Le système devra permettre l'export des rapports.
-
-Formats :
-
-## PDF
-
-Contenu :
-
-* statistiques globales
-* graphiques
-* tableaux
-* filtres appliqués
-* date de génération
-
----
-
-## Excel (.xlsx)
-
-Contenu :
-
-* données complètes
-* tableaux exportables
-
----
-
-## CSV
-
-Contenu :
-
-* export brut des données
-
----
-
-# Gestion des performances
-
-Afin d'éviter les ralentissements :
-
-* création de tables analytics dédiées
-* synchronisation automatique des données
-* cache interne
-* tâches cron
-* calculs pré-traités
-
----
-
-# Administration
-
-Nouvelle section WordPress :
-
-Analytics
-
-Sous-menus :
-
-* Dashboard
-* Clients
-* Réservations
-* Commandes
-* Rapports
-* Exports
-* Paramètres
-
----
-
-# Évolutivité future
-
-Fonctionnalités potentielles :
-
-* prévisions basées sur IA
-* prédiction des annulations
-* scoring clients
-* segmentation intelligente
-* heatmaps horaires
-* comparaison entre périodes
-* envoi automatique de rapports par email
-* API externe
-
----
-
-# Résultat attendu
-
-Obtenir un système analytique centralisé transformant les données WooCommerce et FluentBooking en indicateurs exploitables permettant d'améliorer la prise de décision commerciale et opérationnelle.
+Le plugin n'utilise pas encore Composer ni npm. Si un gestionnaire de dependances est introduit, documenter les commandes dans ce README et dans `AGENTS.md`.
