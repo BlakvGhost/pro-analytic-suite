@@ -49,6 +49,7 @@ class Analytic_Suite_Admin {
             'analytic-suite-bookings' => __( 'Réservations', 'analytic-suite' ),
             'analytic-suite-orders'   => __( 'Commandes', 'analytic-suite' ),
             'analytic-suite-contents' => __( 'Contenus', 'analytic-suite' ),
+            'analytic-suite-google-analytics' => __( 'Google Analytics', 'analytic-suite' ),
             'analytic-suite-reports'  => __( 'Rapports', 'analytic-suite' ),
             'analytic-suite-exports'  => __( 'Exports', 'analytic-suite' ),
             'analytic-suite-settings' => __( 'Paramètres', 'analytic-suite' ),
@@ -120,6 +121,8 @@ class Analytic_Suite_Admin {
             $this->render_orders( $data );
         } elseif ( 'contents' === $view ) {
             $this->render_contents( $data );
+        } elseif ( 'google-analytics' === $view ) {
+            $this->render_google_analytics( $data );
         } elseif ( 'exports' === $view ) {
             $this->render_exports( $filters );
         } elseif ( 'settings' === $view ) {
@@ -143,6 +146,7 @@ class Analytic_Suite_Admin {
             'bookings'  => __( 'Analytics Réservations', 'analytic-suite' ),
             'orders'    => __( 'Analytics Commandes', 'analytic-suite' ),
             'contents'  => __( 'Analytics Contenus', 'analytic-suite' ),
+            'google-analytics' => __( 'Google Analytics', 'analytic-suite' ),
             'reports'   => __( 'Rapports Analytics', 'analytic-suite' ),
             'exports'   => __( 'Exports Analytics', 'analytic-suite' ),
             'settings'  => __( 'Paramètres Analytics', 'analytic-suite' ),
@@ -161,6 +165,7 @@ class Analytic_Suite_Admin {
             'bookings'  => __( 'Réservations', 'analytic-suite' ),
             'orders'    => __( 'Commandes', 'analytic-suite' ),
             'contents'  => __( 'Contenus', 'analytic-suite' ),
+            'google-analytics' => __( 'Google Analytics', 'analytic-suite' ),
             'reports'   => __( 'Rapports', 'analytic-suite' ),
             'exports'   => __( 'Exports', 'analytic-suite' ),
             'settings'  => __( 'Paramètres', 'analytic-suite' ),
@@ -366,28 +371,17 @@ class Analytic_Suite_Admin {
         $top_booking_country = $this->get_top_breakdown_label( $data['bookings']['country_breakdown'] );
         $top_booking_gender  = $this->get_top_breakdown_label( $data['bookings']['gender_breakdown'] );
 
+        $this->render_section_title( __( 'Vue d’ensemble', 'analytic-suite' ), __( 'Les indicateurs qui résument l’activité sur la période filtrée.', 'analytic-suite' ) );
         echo '<div class="analytic-suite-cards">';
         $this->render_card( __( 'Nb clients uniques', 'analytic-suite' ), $summary['unique_customers'] );
-        $this->render_card( __( 'Nb paniers annulés', 'analytic-suite' ), $summary['cancelled_carts'] );
+        $this->render_card( __( 'Commandes', 'analytic-suite' ), $summary['orders'] );
         $this->render_card( __( 'Réservations', 'analytic-suite' ), $summary['bookings'] );
-        $this->render_card( __( 'Réservations annulées', 'analytic-suite' ), $summary['cancelled_bookings'] . ' (' . $summary['cancellation_rate'] . '%)' );
-        $this->render_card( __( 'Clients produits répétés', 'analytic-suite' ), $summary['repeat_product_customers'] );
+        $this->render_card( __( 'Chiffre d’affaires', 'analytic-suite' ), $this->format_price( $summary['revenue'] ) );
         $this->render_card( __( 'Panier moyen', 'analytic-suite' ), $this->format_price( $summary['average_order_value'] ) );
-        $this->render_card( __( 'Pays #1 réservations', 'analytic-suite' ), $top_booking_country );
-        $this->render_card( __( 'Civilité #1 réservations', 'analytic-suite' ), $top_booking_gender );
-        $this->render_card( __( 'Durée dominante', 'analytic-suite' ), $data['bookings']['duration_summary']['leader'] );
-        $this->render_card( __( 'Suivis masterclass', 'analytic-suite' ), $data['contents']['masterclass_follows'] );
-        $this->render_card( __( 'Livres consultés', 'analytic-suite' ), $data['contents']['book_downloads'] );
+        $this->render_card( __( 'Clients produits répétés', 'analytic-suite' ), $summary['repeat_product_customers'] );
         echo '</div>';
 
-        if ( ! empty( $data['ga']['configured'] ) ) {
-            $this->render_ga_cards( $data['ga'] );
-
-            if ( ! empty( $data['ga']['available'] ) ) {
-                $this->render_ga_charts( $data['ga'] );
-            }
-        }
-
+        $this->render_section_title( __( 'Activité globale', 'analytic-suite' ), __( 'Comparaison rapide entre achats, réservations et contenus consultés.', 'analytic-suite' ) );
         echo '<div class="analytic-suite-chart-grid">';
         $this->render_chart( __( 'Activité principale', 'analytic-suite' ), 'bar', array(
             __( 'Commandes', 'analytic-suite' )    => $summary['orders'],
@@ -395,8 +389,6 @@ class Analytic_Suite_Admin {
             __( 'Masterclass', 'analytic-suite' )  => $data['contents']['masterclass_follows'],
             __( 'Livres', 'analytic-suite' )       => $data['contents']['book_downloads'],
         ) );
-        $this->render_chart( __( 'Réservations par catégorie', 'analytic-suite' ), 'doughnut', $data['bookings']['category_breakdown'] );
-        $this->render_chart( __( 'Durées de réservation', 'analytic-suite' ), 'bar', $data['bookings']['duration_breakdown'] );
         $this->render_chart( __( 'Contenus par mois', 'analytic-suite' ), 'line', $this->merge_chart_series(
             $data['contents']['masterclass_by_month'],
             $data['contents']['books_by_month'],
@@ -405,6 +397,33 @@ class Analytic_Suite_Admin {
         ) );
         echo '</div>';
 
+        $this->render_section_title( __( 'Réservations', 'analytic-suite' ), __( 'Statuts, catégories, durée dominante et profils les plus représentés.', 'analytic-suite' ) );
+        echo '<div class="analytic-suite-cards">';
+        $this->render_card( __( 'Réservations annulées', 'analytic-suite' ), $summary['cancelled_bookings'] . ' (' . $summary['cancellation_rate'] . '%)' );
+        $this->render_card( __( 'Pays #1 réservations', 'analytic-suite' ), $top_booking_country );
+        $this->render_card( __( 'Civilité #1 réservations', 'analytic-suite' ), $top_booking_gender );
+        $this->render_card( __( 'Durée dominante', 'analytic-suite' ), $data['bookings']['duration_summary']['leader'] );
+        echo '</div>';
+
+        echo '<div class="analytic-suite-chart-grid">';
+        $this->render_chart( __( 'Réservations par catégorie', 'analytic-suite' ), 'doughnut', $data['bookings']['category_breakdown'] );
+        $this->render_chart( __( 'Durées de réservation', 'analytic-suite' ), 'bar', $data['bookings']['duration_breakdown'] );
+        echo '</div>';
+
+        $this->render_section_title( __( 'Contenus', 'analytic-suite' ), __( 'Suivi des masterclass et livres blancs les plus consultés.', 'analytic-suite' ) );
+        echo '<div class="analytic-suite-cards">';
+        $this->render_card( __( 'Suivis masterclass', 'analytic-suite' ), $data['contents']['masterclass_follows'] );
+        $this->render_card( __( 'Livres consultés', 'analytic-suite' ), $data['contents']['book_downloads'] );
+        $this->render_card( __( 'Utilisateurs masterclass', 'analytic-suite' ), $data['contents']['masterclass_users'] );
+        $this->render_card( __( 'Utilisateurs livres', 'analytic-suite' ), $data['contents']['book_users'] );
+        echo '</div>';
+
+        echo '<div class="analytic-suite-grid">';
+        $this->render_breakdown_table( __( 'Top masterclass', 'analytic-suite' ), $data['contents']['top_masterclasses'] );
+        $this->render_breakdown_table( __( 'Top livres blancs', 'analytic-suite' ), $data['contents']['top_books'] );
+        echo '</div>';
+
+        $this->render_section_title( __( 'Détails opérationnels', 'analytic-suite' ), __( 'Tableaux de contrôle pour affiner la lecture des réservations et commandes.', 'analytic-suite' ) );
         echo '<div class="analytic-suite-grid">';
         $this->render_breakdown_table( __( 'Dîners / Sessions / Diagnostics', 'analytic-suite' ), $data['bookings']['category_breakdown'] );
         $this->render_breakdown_table( __( 'Types de réservation détaillés', 'analytic-suite' ), $data['bookings']['type_breakdown'] );
@@ -412,15 +431,40 @@ class Analytic_Suite_Admin {
         $this->render_breakdown_table( __( 'Comparaison 30 min / 1h', 'analytic-suite' ), $this->format_duration_summary( $data['bookings']['duration_summary'] ) );
         $this->render_breakdown_table( __( 'Pays avec le plus de réservations', 'analytic-suite' ), $data['bookings']['country_breakdown'] );
         $this->render_breakdown_table( __( 'Civilité avec le plus de réservations', 'analytic-suite' ), $data['bookings']['gender_breakdown'] );
-        $this->render_breakdown_table( __( 'Top masterclass', 'analytic-suite' ), $data['contents']['top_masterclasses'] );
-        $this->render_breakdown_table( __( 'Top livres blancs', 'analytic-suite' ), $data['contents']['top_books'] );
         $this->render_breakdown_table( __( 'Statuts réservations', 'analytic-suite' ), $data['bookings']['status_breakdown'] );
         $this->render_breakdown_table( __( 'Statuts commandes', 'analytic-suite' ), $data['orders']['status_breakdown'] );
+        echo '</div>';
+    }
 
-        if ( ! empty( $data['ga']['available'] ) ) {
-            $this->render_ga_tables( $data['ga'] );
+    /**
+     * Renders Google Analytics analytics.
+     *
+     * @param array $data Dashboard data.
+     */
+    private function render_google_analytics( $data ) {
+        $ga = $data['ga'];
+
+        if ( empty( $ga['configured'] ) ) {
+            echo '<div class="analytic-suite-panel">';
+            echo '<h2>' . esc_html__( 'Google Analytics 4', 'analytic-suite' ) . '</h2>';
+            echo '<p>' . esc_html__( 'Google Analytics 4 n’est pas encore configuré. Ajoutez le Property ID et la clé JSON dans Paramètres.', 'analytic-suite' ) . '</p>';
+            echo '</div>';
+            return;
         }
 
+        $this->render_section_title( __( 'Synthèse GA4', 'analytic-suite' ), __( 'Trafic, utilisateurs, sessions et engagement issus de Google Analytics.', 'analytic-suite' ) );
+        $this->render_ga_cards( $ga );
+
+        if ( ! empty( $ga['status']['last_error'] ) ) {
+            echo '<div class="notice notice-error"><p>' . esc_html( sprintf( __( 'Google Analytics 4 ne répond pas : %s', 'analytic-suite' ), $ga['status']['last_error'] ) ) . '</p></div>';
+        }
+
+        $this->render_section_title( __( 'Acquisition et contenus', 'analytic-suite' ), __( 'Sources de trafic, appareils utilisés et pages les plus consultées.', 'analytic-suite' ) );
+        $this->render_ga_charts( $ga );
+
+        $this->render_section_title( __( 'Détails GA4', 'analytic-suite' ), __( 'Tableaux détaillés pour contrôler les principales dimensions Analytics.', 'analytic-suite' ) );
+        echo '<div class="analytic-suite-grid">';
+        $this->render_ga_tables( $data['ga'] );
         echo '</div>';
     }
 
@@ -433,7 +477,6 @@ class Analytic_Suite_Admin {
         $summary = $ga['summary'];
         $realtime = $ga['realtime'] ?? array();
 
-        echo '<h3 style="margin: 30px 0 16px; font-size: 16px; font-weight: 800;">' . esc_html__( 'Google Analytics', 'analytic-suite' ) . '</h3>';
         echo '<div class="analytic-suite-cards">';
         $this->render_card( __( 'Utilisateurs actifs', 'analytic-suite' ), $summary['active_users'] ?? 0 );
         $this->render_card( __( 'Sessions', 'analytic-suite' ), $summary['sessions'] ?? 0 );
@@ -755,6 +798,23 @@ class Analytic_Suite_Admin {
      */
     private function render_card( $label, $value ) {
         echo '<div class="analytic-suite-card"><span>' . esc_html( $label ) . '</span><strong>' . wp_kses_post( (string) $value ) . '</strong></div>';
+    }
+
+    /**
+     * Renders a section title.
+     *
+     * @param string $title       Title.
+     * @param string $description Description.
+     */
+    private function render_section_title( $title, $description = '' ) {
+        echo '<div class="analytic-suite-section-title">';
+        echo '<h2>' . esc_html( $title ) . '</h2>';
+
+        if ( '' !== $description ) {
+            echo '<p>' . esc_html( $description ) . '</p>';
+        }
+
+        echo '</div>';
     }
 
     /**
