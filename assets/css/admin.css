@@ -1100,6 +1100,11 @@
     background: linear-gradient(90deg, var(--as-public-primary), var(--as-public-accent));
 }
 
+.th_checkout_field_editor_for_woocommerce-admin-notice,.update-nag {
+    display: none!important;
+    visibility: hidden!important;
+}
+
 @media (max-width: 900px) {
     .analytic-suite-public {
         padding: 14px;
