@@ -77,6 +77,7 @@ class Analytic_Suite_Dashboard_Service {
             'product'      => isset( $source['product'] ) ? absint( wp_unslash( $source['product'] ) ) : 0,
             'gender'       => isset( $source['gender'] ) ? sanitize_text_field( wp_unslash( $source['gender'] ) ) : '',
             'customer'     => isset( $source['customer'] ) ? sanitize_text_field( wp_unslash( $source['customer'] ) ) : '',
+            'page_path'    => isset( $source['page_path'] ) ? sanitize_text_field( wp_unslash( $source['page_path'] ) ) : '',
         );
 
         return $this->resolve_period_dates( $filters );
@@ -230,6 +231,7 @@ class Analytic_Suite_Dashboard_Service {
             'product'      => 0,
             'gender'       => '',
             'customer'     => '',
+            'page_path'    => '',
         );
 
         $order_metrics   = $this->orders->get_metrics( $empty_filters );

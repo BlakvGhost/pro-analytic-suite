@@ -13,6 +13,7 @@ Plugin WordPress d'analytics premium pour centraliser les ventes WooCommerce, le
 - Integration GA4 via Service Account : utilisateurs actifs, sessions, pages vues, sources de trafic, appareils, pays, villes, ages et sexes quand disponibles.
 - Shortcode public `[analytics_public]` avec interface premium et statistiques GA4 filtrees sur une page selectionnee.
 - Exports CSV, Excel et PDF.
+- API REST complete pour alimenter un frontend separe.
 - Personnalisation de l'apparence depuis les parametres : couleurs principales, accent, header, surfaces et badge.
 
 ## Installation
@@ -53,6 +54,18 @@ Le shortcode affiche :
 - donnees GA4 de la page selectionnee dans les parametres,
 - repartitions age, sexe, pays et villes si GA4 les fournit,
 - graphiques interactifs et listes detaillees.
+
+## API REST
+
+La documentation complete de l'API REST se trouve dans [`REST_API.md`](REST_API.md).
+
+Base URL :
+
+```text
+/wp-json/analytic-suite/v1
+```
+
+Le brief technique pour le frontend Nuxt se trouve dans [`FRONTEND_NUXT_TECHNICAL_BRIEF.md`](FRONTEND_NUXT_TECHNICAL_BRIEF.md).
 
 ## Structure
 

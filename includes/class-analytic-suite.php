@@ -32,6 +32,7 @@ class Analytic_Suite {
         add_action( 'admin_menu', array( $this, 'register_admin_menu' ) );
         add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_admin_assets' ) );
         add_action( 'wp_enqueue_scripts', array( $this, 'enqueue_public_assets' ) );
+        add_action( 'rest_api_init', array( $this, 'register_rest_routes' ) );
         add_action( 'admin_post_analytic_suite_export_csv', array( $this, 'export_csv' ) );
         add_action( 'admin_post_analytic_suite_export_excel', array( $this, 'export_excel' ) );
         add_action( 'admin_post_analytic_suite_export_pdf', array( $this, 'export_pdf' ) );
@@ -49,6 +50,7 @@ class Analytic_Suite {
         require_once ANALYTIC_SUITE_PATH . 'includes/repositories/class-analytic-suite-content-repository.php';
         require_once ANALYTIC_SUITE_PATH . 'includes/services/class-analytic-suite-google-analytics.php';
         require_once ANALYTIC_SUITE_PATH . 'includes/class-analytic-suite-dashboard-service.php';
+        require_once ANALYTIC_SUITE_PATH . 'includes/class-analytic-suite-rest-controller.php';
         require_once ANALYTIC_SUITE_PATH . 'admin/class-analytic-suite-admin.php';
         require_once ANALYTIC_SUITE_PATH . 'admin/class-analytic-suite-export-controller.php';
     }
@@ -143,6 +145,14 @@ class Analytic_Suite {
             ANALYTIC_SUITE_VERSION,
             true
         );
+    }
+
+    /**
+     * Registers REST API routes.
+     */
+    public function register_rest_routes() {
+        $controller = new Analytic_Suite_REST_Controller( $this->get_dashboard_service() );
+        $controller->register_routes();
     }
 
     /**
