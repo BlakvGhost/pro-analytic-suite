@@ -285,12 +285,11 @@ class Analytic_Suite {
         $engagement_rate = $this->calculate_percentage( $data['completed_content'], $data['total_users'] );
         $login_rate      = $this->calculate_percentage( $data['logged_in_users'], $data['total_users'] );
         $access_rate     = $this->calculate_percentage( $data['disability_count'], $data['total_users'] );
-        $public_page     = $this->get_public_ga_page();
-        $ga_data         = $this->get_public_ga_data( $public_page );
-        $age_breakdown   = $this->prefer_ga_breakdown( $ga_data['demographics']['ages'] ?? array(), $data['age_breakdown'] );
-        $sex_breakdown   = $this->prefer_ga_breakdown( $this->format_public_ga_genders( $ga_data['demographics']['genders'] ?? array() ), $data['sex_breakdown'] );
-        $location_breakdown = $this->prefer_ga_breakdown( $ga_data['demographics']['countries'] ?? array(), $data['location_breakdown'] );
-        $city_breakdown  = $ga_data['demographics']['cities'] ?? array();
+        $ga_data            = $this->get_public_ga_data();
+        $age_breakdown      = $ga_data['demographics']['ages'] ?? array();
+        $sex_breakdown      = $this->format_public_ga_genders( $ga_data['demographics']['genders'] ?? array() );
+        $location_breakdown = $ga_data['demographics']['countries'] ?? array();
+        $city_breakdown     = $ga_data['demographics']['cities'] ?? array();
 
         ob_start();
         ?>
@@ -315,21 +314,20 @@ class Analytic_Suite {
                 <?php $this->render_public_stat_card( __( 'Situation de handicap', 'analytic-suite' ), $data['disability_count'], number_format_i18n( $access_rate, 1 ) . '%' ); ?>
             </div>
 
-            <?php if ( ! empty( $ga_data['configured'] ) && ! empty( $public_page['path'] ) ) : ?>
+            <?php if ( ! empty( $ga_data['configured'] ) ) : ?>
                 <section class="as-public-ga-block">
                     <div class="as-public-ga-heading">
                         <span><?php esc_html_e( 'Google Analytics 4', 'analytic-suite' ); ?></span>
-                        <h3><?php echo esc_html( sprintf( __( 'Performance de la page : %s', 'analytic-suite' ), $public_page['title'] ) ); ?></h3>
-                        <p><?php echo esc_html( $public_page['path'] ); ?></p>
+                        <h3><?php esc_html_e( 'Performance des contenus', 'analytic-suite' ); ?></h3>
                     </div>
                     <div class="as-public-grid">
                         <?php $this->render_public_stat_card( __( 'Visiteurs actifs', 'analytic-suite' ), $ga_data['summary']['active_users'], __( '30 derniers jours', 'analytic-suite' ) ); ?>
-                        <?php $this->render_public_stat_card( __( 'Sessions', 'analytic-suite' ), $ga_data['summary']['sessions'], __( 'Trafic page', 'analytic-suite' ) ); ?>
-                        <?php $this->render_public_stat_card( __( 'Pages vues', 'analytic-suite' ), $ga_data['summary']['page_views'], __( 'Vues filtrées', 'analytic-suite' ) ); ?>
+                        <?php $this->render_public_stat_card( __( 'Sessions', 'analytic-suite' ), $ga_data['summary']['sessions'], __( 'Trafic', 'analytic-suite' ) ); ?>
+                        <?php $this->render_public_stat_card( __( 'Pages vues', 'analytic-suite' ), $ga_data['summary']['page_views'], __( 'Vues', 'analytic-suite' ) ); ?>
                         <?php $this->render_public_stat_card( __( 'Nouveaux utilisateurs', 'analytic-suite' ), $ga_data['summary']['new_users'], $ga_data['summary']['avg_duration'] ); ?>
                     </div>
                     <div class="as-public-charts">
-                        <?php $this->render_public_chart( __( 'Indicateurs GA4 de la page', 'analytic-suite' ), 'bar', array(
+                        <?php $this->render_public_chart( __( 'Indicateurs GA4', 'analytic-suite' ), 'bar', array(
                             __( 'Utilisateurs', 'analytic-suite' ) => $ga_data['summary']['active_users'],
                             __( 'Sessions', 'analytic-suite' )     => $ga_data['summary']['sessions'],
                             __( 'Pages vues', 'analytic-suite' )   => $ga_data['summary']['page_views'],
@@ -454,39 +452,21 @@ class Analytic_Suite {
      *
      * @return array
      */
-    private function get_public_ga_page() {
-        $page_id = absint( get_option( 'analytic_suite_public_ga_page_id', 0 ) );
-
-        if ( ! $page_id ) {
-            return array(
-                'id'    => 0,
-                'title' => '',
-                'path'  => '',
-            );
-        }
-
-        $permalink = get_permalink( $page_id );
-        $path      = $permalink ? wp_parse_url( $permalink, PHP_URL_PATH ) : '';
-
-        return array(
-            'id'    => $page_id,
-            'title' => get_the_title( $page_id ),
-            'path'  => $path ? $path : '/',
-        );
+    private function get_public_content_paths() {
+        return array( '/contenus-gratuits/', '/expert-session/', '/livre/' );
     }
 
     /**
-     * Gets GA data for the selected public page.
+     * Gets GA data filtered to the public content paths.
      *
-     * @param array $page Page data.
      * @return array
      */
-    private function get_public_ga_data( $page ) {
+    private function get_public_ga_data() {
         $ga = new Analytic_Suite_Google_Analytics();
 
-        if ( empty( $page['path'] ) || ! $ga->is_configured() ) {
+        if ( ! $ga->is_configured() ) {
             return array(
-                'configured'   => $ga->is_configured(),
+                'configured'   => false,
                 'summary'      => array(),
                 'pages'        => array(),
                 'demographics' => array(),
@@ -494,8 +474,8 @@ class Analytic_Suite {
         }
 
         $filters = array(
-            'period'    => '30-days',
-            'page_path' => $page['path'],
+            'period'     => '30-days',
+            'page_paths' => $this->get_public_content_paths(),
         );
 
         return array(

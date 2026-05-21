@@ -712,8 +712,7 @@
 .analytic-suite-public .as-public-hero {
     align-items: stretch;
     background:
-        linear-gradient(135deg, rgba(13, 47, 41, 0.98), rgba(15, 118, 110, 0.9)),
-        #10231f;
+        linear-gradient(135deg, var(--as-header-bg, #10231f), var(--as-public-primary, #0f766e));
     border-radius: 14px;
     color: #fff;
     display: grid;
@@ -807,7 +806,7 @@
 }
 
 .analytic-suite-public .as-public-meter-track span {
-    background: linear-gradient(90deg, #e7c37d, #5eead4);
+    background: linear-gradient(90deg, var(--as-public-accent, #d69a3a), var(--as-public-primary, #0f766e));
     border-radius: inherit;
     display: block;
     height: 100%;

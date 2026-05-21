@@ -587,10 +587,30 @@ class Analytic_Suite_Google_Analytics {
      * @return array|null
      */
     private function build_dimension_filter( $filters ) {
+        if ( ! empty( $filters['page_paths'] ) && is_array( $filters['page_paths'] ) ) {
+            $expressions = array();
+
+            foreach ( $filters['page_paths'] as $path ) {
+                $expressions[] = array(
+                    'filter' => array(
+                        'fieldName'    => 'unifiedPagePathScreen',
+                        'stringFilter' => array(
+                            'matchType' => 'BEGINS_WITH',
+                            'value'     => (string) $path,
+                        ),
+                    ),
+                );
+            }
+
+            return array(
+                'orGroup' => array( 'expressions' => $expressions ),
+            );
+        }
+
         if ( ! empty( $filters['page_path'] ) ) {
             return array(
                 'filter' => array(
-                    'fieldName' => 'unifiedPagePathScreen',
+                    'fieldName'    => 'unifiedPagePathScreen',
                     'stringFilter' => array(
                         'matchType' => 'CONTAINS',
                         'value'     => $filters['page_path'],

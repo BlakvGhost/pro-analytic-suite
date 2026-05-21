@@ -802,7 +802,6 @@ class Analytic_Suite_Admin {
                 update_option( 'analytic_suite_ga_refresh_token', $refresh_token );
             }
 
-            update_option( 'analytic_suite_public_ga_page_id', absint( wp_unslash( $_POST['public_ga_page_id'] ?? 0 ) ) );
             $this->save_appearance_settings( $_POST );
 
             $ga = new Analytic_Suite_Google_Analytics();
@@ -844,17 +843,9 @@ class Analytic_Suite_Admin {
         }
         echo '</td></tr>';
 
-        echo '<tr><th>' . esc_html__( 'Page publique suivie', 'analytic-suite' ) . '</th>';
-        echo '<td>';
-        wp_dropdown_pages(
-            array(
-                'name'              => 'public_ga_page_id',
-                'selected'          => absint( get_option( 'analytic_suite_public_ga_page_id', 0 ) ),
-                'show_option_none'  => __( 'Aucune page sélectionnée', 'analytic-suite' ),
-                'option_none_value' => 0,
-            )
-        );
-        echo '<p class="description">' . esc_html__( 'Le shortcode public affichera les statistiques GA4 de cette page uniquement.', 'analytic-suite' ) . '</p>';
+        echo '<tr><th>' . esc_html__( 'Pages suivies', 'analytic-suite' ) . '</th>';
+        echo '<td><code>/contenus-gratuits/</code> &middot; <code>/expert-session/</code> &middot; <code>/livre/</code>';
+        echo '<p class="description">' . esc_html__( 'Les données GA4 du shortcode public couvrent toutes les URLs commençant par ces préfixes.', 'analytic-suite' ) . '</p>';
         echo '</td></tr>';
 
         echo '<tr><th></th><td>';
