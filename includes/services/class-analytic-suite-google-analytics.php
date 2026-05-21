@@ -22,11 +22,25 @@ class Analytic_Suite_Google_Analytics {
     private $property_id;
 
     /**
-     * Service account credentials JSON.
+     * OAuth2 Client ID.
      *
-     * @var array
+     * @var string
      */
-    private $credentials;
+    private $client_id;
+
+    /**
+     * OAuth2 Client Secret.
+     *
+     * @var string
+     */
+    private $client_secret;
+
+    /**
+     * OAuth2 Refresh Token.
+     *
+     * @var string
+     */
+    private $refresh_token;
 
     /**
      * Cache key prefix.
@@ -45,12 +59,16 @@ class Analytic_Suite_Google_Analytics {
     /**
      * Constructor.
      *
-     * @param string $property_id GA4 property ID.
-     * @param array  $credentials  Service account JSON credentials.
+     * @param string $property_id   GA4 property ID.
+     * @param string $client_id     OAuth2 client ID.
+     * @param string $client_secret OAuth2 client secret.
+     * @param string $refresh_token OAuth2 refresh token.
      */
-    public function __construct( $property_id = '', $credentials = array() ) {
-        $this->property_id = $property_id ?: get_option( 'analytic_suite_ga_property_id', '' );
-        $this->credentials  = $credentials ?: json_decode( get_option( 'analytic_suite_ga_credentials', '' ), true );
+    public function __construct( $property_id = '', $client_id = '', $client_secret = '', $refresh_token = '' ) {
+        $this->property_id   = $property_id   ?: get_option( 'analytic_suite_ga_property_id', '' );
+        $this->client_id     = $client_id     ?: get_option( 'analytic_suite_ga_client_id', '' );
+        $this->client_secret = $client_secret ?: get_option( 'analytic_suite_ga_client_secret', '' );
+        $this->refresh_token = $refresh_token ?: get_option( 'analytic_suite_ga_refresh_token', '' );
     }
 
     /**
@@ -59,7 +77,10 @@ class Analytic_Suite_Google_Analytics {
      * @return bool
      */
     public function is_configured() {
-        return ! empty( $this->property_id ) && ! empty( $this->credentials );
+        return ! empty( $this->property_id )
+            && ! empty( $this->client_id )
+            && ! empty( $this->client_secret )
+            && ! empty( $this->refresh_token );
     }
 
     /**
@@ -69,10 +90,9 @@ class Analytic_Suite_Google_Analytics {
      */
     public function get_status() {
         return array(
-            'configured'   => $this->is_configured(),
-            'property_id'  => $this->property_id,
-            'client_email' => $this->credentials['client_email'] ?? '',
-            'last_error'   => $this->last_error,
+            'configured'  => $this->is_configured(),
+            'property_id' => $this->property_id,
+            'last_error'  => $this->last_error,
         );
     }
 
@@ -443,7 +463,7 @@ class Analytic_Suite_Google_Analytics {
     }
 
     /**
-     * Gets access token using service account.
+     * Gets a fresh access token using the stored OAuth2 refresh token.
      *
      * @return string
      */
@@ -454,54 +474,19 @@ class Analytic_Suite_Google_Analytics {
             return $cached;
         }
 
-        if ( empty( $this->credentials['private_key'] ) || empty( $this->credentials['client_email'] ) ) {
+        if ( empty( $this->client_id ) || empty( $this->client_secret ) || empty( $this->refresh_token ) ) {
             return '';
         }
-
-        $jwt_header = $this->base64url_encode( wp_json_encode( array( 'typ' => 'JWT', 'alg' => 'RS256' ) ) );
-
-        $now = time();
-        $jwt_payload = $this->base64url_encode(
-            wp_json_encode(
-                array(
-                    'iss'   => $this->credentials['client_email'],
-                    'sub'   => $this->credentials['client_email'],
-                    'aud'   => 'https://oauth2.googleapis.com/token',
-                    'iat'   => $now,
-                    'exp'   => $now + 3600,
-                    'scope' => 'https://www.googleapis.com/auth/analytics.readonly',
-                )
-            )
-        );
-
-        $signing_algorithm = OPENSSL_ALGO_SHA256;
-        $private_key       = openssl_pkey_get_private( $this->credentials['private_key'] );
-
-        if ( ! $private_key ) {
-            $this->last_error = __( 'Clé privée Google Analytics invalide.', 'analytic-suite' );
-            return '';
-        }
-
-        $signature = '';
-        $signing_input = $jwt_header . '.' . $jwt_payload;
-
-        if ( ! openssl_sign( $signing_input, $signature, $private_key, $signing_algorithm ) ) {
-            $this->last_error = __( 'Signature du token Google Analytics impossible.', 'analytic-suite' );
-            return '';
-        }
-
-        $jwt_signature = $this->base64url_encode( $signature );
-        $jwt = $signing_input . '.' . $jwt_signature;
 
         $response = wp_remote_post(
             'https://oauth2.googleapis.com/token',
             array(
-                'headers' => array(
-                    'Content-Type' => 'application/x-www-form-urlencoded',
-                ),
-                'body' => array(
-                    'grant_type' => 'urn:ietf:params:oauth:grant-type:jwt-bearer',
-                    'assertion'   => $jwt,
+                'headers' => array( 'Content-Type' => 'application/x-www-form-urlencoded' ),
+                'body'    => array(
+                    'grant_type'    => 'refresh_token',
+                    'client_id'     => $this->client_id,
+                    'client_secret' => $this->client_secret,
+                    'refresh_token' => $this->refresh_token,
                 ),
             )
         );
@@ -511,28 +496,19 @@ class Analytic_Suite_Google_Analytics {
             return '';
         }
 
-        $code = wp_remote_retrieve_response_code( $response );
+        $code     = wp_remote_retrieve_response_code( $response );
         $raw_body = wp_remote_retrieve_body( $response );
-        $data = json_decode( $raw_body, true );
+        $data     = json_decode( $raw_body, true );
 
         if ( 200 !== $code || empty( $data['access_token'] ) ) {
             $this->last_error = $this->format_api_error( $raw_body, $code );
             return '';
         }
 
-        set_transient( $this->cache_key . 'token', $data['access_token'], 3500 );
+        $expires_in = isset( $data['expires_in'] ) ? (int) $data['expires_in'] - 60 : 3500;
+        set_transient( $this->cache_key . 'token', $data['access_token'], $expires_in );
 
         return $data['access_token'];
-    }
-
-    /**
-     * Encodes data using base64url for JWT segments.
-     *
-     * @param string $data Raw data.
-     * @return string
-     */
-    private function base64url_encode( $data ) {
-        return rtrim( strtr( base64_encode( $data ), '+/', '-_' ), '=' );
     }
 
     /**

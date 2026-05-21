@@ -790,28 +790,25 @@ class Analytic_Suite_Admin {
         echo '<h2>' . esc_html__( 'Google Analytics 4', 'analytic-suite' ) . '</h2>';
 
         if ( isset( $_POST['analytic_suite_save_ga'] ) && check_admin_referer( 'analytic_suite_ga_settings' ) ) {
-            $property_id    = sanitize_text_field( wp_unslash( $_POST['ga_property_id'] ?? '' ) );
-            $credentials    = trim( wp_unslash( $_POST['ga_credentials'] ?? '' ) );
-            $credentials_ok = '' === $credentials || is_array( json_decode( $credentials, true ) );
+            $property_id   = sanitize_text_field( wp_unslash( $_POST['ga_property_id'] ?? '' ) );
+            $client_id     = sanitize_text_field( wp_unslash( $_POST['ga_client_id'] ?? '' ) );
+            $client_secret = sanitize_text_field( wp_unslash( $_POST['ga_client_secret'] ?? '' ) );
+            $refresh_token = sanitize_text_field( wp_unslash( $_POST['ga_refresh_token'] ?? '' ) );
 
-            if ( $credentials_ok ) {
-                update_option( 'analytic_suite_ga_property_id', $property_id );
-                update_option( 'analytic_suite_ga_credentials', $credentials );
+            update_option( 'analytic_suite_ga_property_id', $property_id );
+            update_option( 'analytic_suite_ga_client_id', $client_id );
+            update_option( 'analytic_suite_ga_client_secret', $client_secret );
+            if ( ! empty( $refresh_token ) ) {
+                update_option( 'analytic_suite_ga_refresh_token', $refresh_token );
             }
 
             update_option( 'analytic_suite_public_ga_page_id', absint( wp_unslash( $_POST['public_ga_page_id'] ?? 0 ) ) );
             $this->save_appearance_settings( $_POST );
 
-            if ( ! empty( $_POST['ga_clear_cache'] ) || $credentials_ok ) {
-                $ga = new Analytic_Suite_Google_Analytics();
-                $ga->clear_cache();
-            }
+            $ga = new Analytic_Suite_Google_Analytics();
+            $ga->clear_cache();
 
-            if ( $credentials_ok ) {
-                echo '<div class="notice notice-success"><p>' . esc_html__( 'Paramètres enregistrés.', 'analytic-suite' ) . '</p></div>';
-            } else {
-                echo '<div class="notice notice-error"><p>' . esc_html__( 'La clé JSON Google Analytics est invalide. Les paramètres n’ont pas été enregistrés.', 'analytic-suite' ) . '</p></div>';
-            }
+            echo '<div class="notice notice-success"><p>' . esc_html__( 'Paramètres enregistrés.', 'analytic-suite' ) . '</p></div>';
         }
 
         $ga = new Analytic_Suite_Google_Analytics();
@@ -825,9 +822,18 @@ class Analytic_Suite_Admin {
         echo '<td><input type="text" name="ga_property_id" value="' . esc_attr( get_option( 'analytic_suite_ga_property_id', '' ) ) . '" class="regular-text" placeholder="XXXXXXXXX">';
         echo '<p class="description">Ex: 1234567890 (dans GA4 > Administration > Propriété)</p></td></tr>';
 
-        echo '<tr><th>' . esc_html__( 'Clé JSON Service Account', 'analytic-suite' ) . '</th>';
-        echo '<td><textarea name="ga_credentials" rows="6" class="large-text code" placeholder=\'{"type":"service_account",...}\'>' . esc_textarea( get_option( 'analytic_suite_ga_credentials', '' ) ) . '</textarea>';
-        echo '<p class="description">' . esc_html__( 'Copier le contenu du fichier JSON du compte de service Google. Donner le rôle "Lecteur" à l\'email du service account dans GA4.', 'analytic-suite' ) . '</p></td></tr>';
+        echo '<tr><th>' . esc_html__( 'Client ID OAuth2', 'analytic-suite' ) . '</th>';
+        echo '<td><input type="text" name="ga_client_id" value="' . esc_attr( get_option( 'analytic_suite_ga_client_id', '' ) ) . '" class="large-text" placeholder="XXXXXXX.apps.googleusercontent.com">';
+        echo '<p class="description">' . esc_html__( 'Client ID de votre application OAuth2 (Google Cloud Console > Identifiants).', 'analytic-suite' ) . '</p></td></tr>';
+
+        echo '<tr><th>' . esc_html__( 'Client Secret OAuth2', 'analytic-suite' ) . '</th>';
+        echo '<td><input type="password" name="ga_client_secret" value="' . esc_attr( get_option( 'analytic_suite_ga_client_secret', '' ) ) . '" class="large-text">';
+        echo '<p class="description">' . esc_html__( 'Client Secret de votre application OAuth2.', 'analytic-suite' ) . '</p></td></tr>';
+
+        echo '<tr><th>' . esc_html__( 'Refresh Token', 'analytic-suite' ) . '</th>';
+        $has_token = ! empty( get_option( 'analytic_suite_ga_refresh_token', '' ) );
+        echo '<td><input type="password" name="ga_refresh_token" value="" class="large-text" placeholder="' . ( $has_token ? esc_attr__( '(token enregistré — laisser vide pour conserver)', 'analytic-suite' ) : '' ) . '">';
+        echo '<p class="description">' . esc_html__( 'Refresh Token OAuth2 obtenu lors de l\'autorisation. Laisser vide pour conserver le token actuel.', 'analytic-suite' ) . '</p></td></tr>';
 
         echo '<tr><th>' . esc_html__( 'Statut', 'analytic-suite' ) . '</th>';
         echo '<td>';
