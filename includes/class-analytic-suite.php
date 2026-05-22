@@ -309,7 +309,6 @@ class Analytic_Suite {
 
             <div class="as-public-grid">
                 <?php $this->render_public_stat_card( __( 'Utilisateurs inscrits', 'analytic-suite' ), $data['total_users'], __( 'Base totale', 'analytic-suite' ) ); ?>
-                <?php $this->render_public_stat_card( __( 'Utilisateurs connectés', 'analytic-suite' ), $data['logged_in_users'], number_format_i18n( $login_rate, 1 ) . '%' ); ?>
                 <?php $this->render_public_stat_card( __( 'Contenus finalisés', 'analytic-suite' ), $data['completed_content'], number_format_i18n( $engagement_rate, 1 ) . '%' ); ?>
                 <?php $this->render_public_stat_card( __( 'Situation de handicap', 'analytic-suite' ), $data['disability_count'], number_format_i18n( $access_rate, 1 ) . '%' ); ?>
             </div>
@@ -317,14 +316,13 @@ class Analytic_Suite {
             <?php if ( ! empty( $ga_data['configured'] ) ) : ?>
                 <section class="as-public-ga-block">
                     <div class="as-public-ga-heading">
-                        <span><?php esc_html_e( 'Google Analytics 4', 'analytic-suite' ); ?></span>
                         <h3><?php esc_html_e( 'Performance des contenus', 'analytic-suite' ); ?></h3>
                     </div>
                     <div class="as-public-grid">
                         <?php $this->render_public_stat_card( __( 'Visiteurs actifs', 'analytic-suite' ), $ga_data['summary']['active_users'], __( '30 derniers jours', 'analytic-suite' ) ); ?>
                         <?php $this->render_public_stat_card( __( 'Sessions', 'analytic-suite' ), $ga_data['summary']['sessions'], __( 'Trafic', 'analytic-suite' ) ); ?>
                         <?php $this->render_public_stat_card( __( 'Pages vues', 'analytic-suite' ), $ga_data['summary']['page_views'], __( 'Vues', 'analytic-suite' ) ); ?>
-                        <?php $this->render_public_stat_card( __( 'Nouveaux utilisateurs', 'analytic-suite' ), $ga_data['summary']['new_users'], $ga_data['summary']['avg_duration'] ); ?>
+                        <?php $this->render_public_stat_card( __( 'Nouveaux visiteurs', 'analytic-suite' ), $ga_data['summary']['new_users'], $ga_data['summary']['avg_duration'] ); ?>
                     </div>
                     <div class="as-public-charts">
                         <?php $this->render_public_chart( __( 'Indicateurs GA4', 'analytic-suite' ), 'bar', array(
@@ -338,37 +336,11 @@ class Analytic_Suite {
                 </section>
             <?php endif; ?>
 
-            <div class="as-public-insights">
-                <div class="as-public-ring-card">
-                    <span><?php esc_html_e( 'Taux de connexion', 'analytic-suite' ); ?></span>
-                    <div class="as-public-ring" style="--as-ring-value: <?php echo esc_attr( min( 100, $login_rate ) ); ?>;">
-                        <strong><?php echo esc_html( number_format_i18n( $login_rate, 1 ) ); ?>%</strong>
-                    </div>
-                </div>
-                <div class="as-public-ring-card">
-                    <span><?php esc_html_e( 'Progression contenu', 'analytic-suite' ); ?></span>
-                    <div class="as-public-ring" style="--as-ring-value: <?php echo esc_attr( min( 100, $engagement_rate ) ); ?>;">
-                        <strong><?php echo esc_html( number_format_i18n( $engagement_rate, 1 ) ); ?>%</strong>
-                    </div>
-                </div>
-                <div class="as-public-highlight">
-                    <span><?php esc_html_e( 'Lecture rapide', 'analytic-suite' ); ?></span>
-                    <strong><?php echo esc_html( number_format_i18n( $data['completed_content'] ) ); ?></strong>
-                    <p><?php esc_html_e( 'utilisateurs ont finalisé au moins un contenu suivi.', 'analytic-suite' ); ?></p>
-                </div>
-            </div>
-
             <div class="as-public-charts">
                 <?php $this->render_public_chart( __( 'Répartition par âge', 'analytic-suite' ), 'bar', $age_breakdown ); ?>
                 <?php $this->render_public_chart( __( 'Répartition par sexe', 'analytic-suite' ), 'doughnut', $sex_breakdown ); ?>
                 <?php $this->render_public_chart( __( 'Localisation', 'analytic-suite' ), 'doughnut', $location_breakdown ); ?>
                 <?php $this->render_public_chart( __( 'Villes', 'analytic-suite' ), 'bar', $city_breakdown ); ?>
-                <?php $this->render_public_chart( __( 'Parcours utilisateur', 'analytic-suite' ), 'bar', array(
-                    __( 'Inscrits', 'analytic-suite' )   => $data['total_users'],
-                    __( 'Connectés', 'analytic-suite' )  => $data['logged_in_users'],
-                    __( 'Finalisés', 'analytic-suite' )  => $data['completed_content'],
-                    __( 'Handicap', 'analytic-suite' )   => $data['disability_count'],
-                ) ); ?>
             </div>
 
             <div class="as-public-sections">
