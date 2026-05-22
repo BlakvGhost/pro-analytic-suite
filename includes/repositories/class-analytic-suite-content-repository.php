@@ -316,6 +316,138 @@ class Analytic_Suite_Content_Repository {
     }
 
     /**
+     * Gets age and gender breakdown for users registered to free content.
+     * Sources: `ages` and `genders` Profile Builder meta keys.
+     *
+     * @return array { age_breakdown: array, gender_breakdown: array }
+     */
+    public function get_registered_user_demographics() {
+        global $wpdb;
+
+        $user_ids = $this->get_content_user_ids();
+
+        if ( empty( $user_ids ) ) {
+            return array(
+                'age_breakdown'    => array(),
+                'gender_breakdown' => array(),
+            );
+        }
+
+        $ids_in = implode( ',', $user_ids );
+
+        // Age breakdown — Profile Builder stores birth date in 'ages' meta.
+        $age_values = $wpdb->get_col(
+            "SELECT meta_value FROM {$wpdb->usermeta}
+             WHERE meta_key = 'ages'
+             AND user_id IN ({$ids_in})
+             AND meta_value != ''"
+        );
+
+        $ranges = array(
+            '18-24' => 0,
+            '25-34' => 0,
+            '35-44' => 0,
+            '45-54' => 0,
+            '55-64' => 0,
+            '65+'   => 0,
+        );
+
+        $today = new DateTime( 'today' );
+
+        foreach ( $age_values as $raw ) {
+            $birth = $this->parse_birthdate( $raw );
+
+            if ( ! $birth ) {
+                continue;
+            }
+
+            $age = (int) $today->diff( $birth )->y;
+
+            if ( $age >= 18 && $age <= 24 )      $ranges['18-24']++;
+            elseif ( $age >= 25 && $age <= 34 )  $ranges['25-34']++;
+            elseif ( $age >= 35 && $age <= 44 )  $ranges['35-44']++;
+            elseif ( $age >= 45 && $age <= 54 )  $ranges['45-54']++;
+            elseif ( $age >= 55 && $age <= 64 )  $ranges['55-64']++;
+            elseif ( $age >= 65 )                $ranges['65+']++;
+        }
+
+        // Gender breakdown — Profile Builder stores gender in 'genders' meta.
+        $gender_rows = $wpdb->get_results(
+            "SELECT meta_value, COUNT(*) AS total
+             FROM {$wpdb->usermeta}
+             WHERE meta_key = 'genders'
+             AND user_id IN ({$ids_in})
+             AND meta_value != ''
+             GROUP BY meta_value
+             ORDER BY total DESC",
+            ARRAY_A
+        );
+
+        $gender_breakdown = array();
+
+        foreach ( $gender_rows as $row ) {
+            $gender_breakdown[ ucfirst( (string) $row['meta_value'] ) ] = (int) $row['total'];
+        }
+
+        return array(
+            'age_breakdown'    => array_filter( $ranges ),
+            'gender_breakdown' => $gender_breakdown,
+        );
+    }
+
+    /**
+     * Returns distinct user IDs from both content tracking tables.
+     *
+     * @return int[]
+     */
+    private function get_content_user_ids() {
+        global $wpdb;
+
+        $parts = array();
+
+        if ( $this->table_exists( 'user_masterclass' ) ) {
+            $parts[] = "SELECT DISTINCT user_id FROM {$wpdb->prefix}user_masterclass";
+        }
+
+        if ( $this->table_exists( 'user_livres' ) ) {
+            $parts[] = "SELECT DISTINCT user_id FROM {$wpdb->prefix}user_livres";
+        }
+
+        if ( empty( $parts ) ) {
+            return array();
+        }
+
+        $rows = $wpdb->get_col( implode( ' UNION ', $parts ) );
+
+        return array_map( 'intval', $rows );
+    }
+
+    /**
+     * Parses a birth date string into a DateTime, trying common Profile Builder formats.
+     *
+     * @param string $value Raw meta value.
+     * @return DateTime|null
+     */
+    private function parse_birthdate( $value ) {
+        $value = trim( (string) $value );
+
+        if ( '' === $value ) {
+            return null;
+        }
+
+        foreach ( array( 'd/m/Y', 'Y-m-d', 'm/d/Y', 'd-m-Y', 'Y/m/d' ) as $format ) {
+            $date   = DateTime::createFromFormat( $format, $value );
+            $errors = DateTime::getLastErrors();
+
+            if ( false !== $date && empty( $errors['warning_count'] ) && empty( $errors['error_count'] ) ) {
+                return $date;
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * Gets public user demographics.
      *
      * @return array

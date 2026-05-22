@@ -286,8 +286,9 @@ class Analytic_Suite {
         $login_rate      = $this->calculate_percentage( $data['logged_in_users'], $data['total_users'] );
         $access_rate     = $this->calculate_percentage( $data['disability_count'], $data['total_users'] );
         $ga_data            = $this->get_public_ga_data();
-        $age_breakdown      = $ga_data['demographics']['ages'] ?? array();
-        $sex_breakdown      = $this->format_public_ga_genders( $ga_data['demographics']['genders'] ?? array() );
+        $registered_demos   = $content_repo->get_registered_user_demographics();
+        $age_breakdown      = $registered_demos['age_breakdown'];
+        $sex_breakdown      = $registered_demos['gender_breakdown'];
         $location_breakdown = $ga_data['demographics']['countries'] ?? array();
         $city_breakdown     = $ga_data['demographics']['cities'] ?? array();
 
