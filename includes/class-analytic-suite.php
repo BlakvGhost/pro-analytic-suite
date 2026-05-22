@@ -31,6 +31,7 @@ class Analytic_Suite {
         add_action( 'admin_init', array( $this, 'ensure_capabilities' ) );
         add_action( 'admin_menu', array( $this, 'register_admin_menu' ) );
         add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_admin_assets' ) );
+        add_action( 'admin_head', array( $this, 'suppress_admin_notices' ) );
         add_action( 'wp_enqueue_scripts', array( $this, 'enqueue_public_assets' ) );
         add_action( 'rest_api_init', array( $this, 'register_rest_routes' ) );
         add_action( 'admin_post_analytic_suite_export_csv', array( $this, 'export_csv' ) );
@@ -123,6 +124,22 @@ class Analytic_Suite {
             ANALYTIC_SUITE_VERSION,
             true
         );
+    }
+
+    /**
+     * Removes all admin notices on plugin pages to keep the dashboard clean.
+     */
+    public function suppress_admin_notices() {
+        $page = isset( $_GET['page'] ) ? sanitize_key( wp_unslash( $_GET['page'] ) ) : '';
+
+        if ( false === strpos( $page, 'analytic-suite' ) ) {
+            return;
+        }
+
+        remove_all_actions( 'admin_notices' );
+        remove_all_actions( 'all_admin_notices' );
+        remove_all_actions( 'user_admin_notices' );
+        remove_all_actions( 'network_admin_notices' );
     }
 
     /**
