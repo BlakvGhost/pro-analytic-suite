@@ -338,14 +338,14 @@ class Analytic_Suite {
             <?php endif; ?>
 
             <div class="as-public-charts">
-                <?php $this->render_public_chart( __( 'Répartition par âge', 'analytic-suite' ), 'bar', $age_breakdown ); ?>
+                <?php $this->render_public_chart( __( 'Années d\'expérience', 'analytic-suite' ), 'bar', $age_breakdown ); ?>
                 <?php $this->render_public_chart( __( 'Répartition par sexe', 'analytic-suite' ), 'doughnut', $sex_breakdown ); ?>
                 <?php $this->render_public_chart( __( 'Localisation', 'analytic-suite' ), 'doughnut', $location_breakdown ); ?>
                 <?php $this->render_public_chart( __( 'Villes', 'analytic-suite' ), 'bar', $city_breakdown ); ?>
             </div>
 
             <div class="as-public-sections">
-                <?php $this->render_public_breakdown( __( 'Âge', 'analytic-suite' ), $age_breakdown ); ?>
+                <?php $this->render_public_breakdown( __( 'Expérience', 'analytic-suite' ), $age_breakdown ); ?>
                 <?php $this->render_public_breakdown( __( 'Sexe', 'analytic-suite' ), $sex_breakdown ); ?>
                 <?php $this->render_public_breakdown( __( 'Localisation', 'analytic-suite' ), $location_breakdown ); ?>
                 <?php $this->render_public_breakdown( __( 'Villes', 'analytic-suite' ), $city_breakdown ); ?>

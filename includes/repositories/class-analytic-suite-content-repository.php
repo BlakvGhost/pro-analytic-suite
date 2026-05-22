@@ -316,8 +316,9 @@ class Analytic_Suite_Content_Repository {
     }
 
     /**
-     * Gets age and gender breakdown for users registered to free content.
-     * Sources: `ages` and `genders` Profile Builder meta keys.
+     * Gets experience and gender breakdown for users registered to free content.
+     * Experience source : `field_experience` user meta (years of experience from Elementor form).
+     * Gender source     : `genders` user meta (Profile Builder select).
      *
      * @return array { age_breakdown: array, gender_breakdown: array }
      */
@@ -335,43 +336,24 @@ class Analytic_Suite_Content_Repository {
 
         $ids_in = implode( ',', $user_ids );
 
-        // Age breakdown — Profile Builder stores birth date in 'ages' meta.
-        $age_values = $wpdb->get_col(
-            "SELECT meta_value FROM {$wpdb->usermeta}
-             WHERE meta_key = 'ages'
+        // Experience breakdown — grouped by raw value of 'field_experience' user meta.
+        $exp_rows = $wpdb->get_results(
+            "SELECT meta_value, COUNT(*) AS total
+             FROM {$wpdb->usermeta}
+             WHERE meta_key = 'field_experience'
              AND user_id IN ({$ids_in})
-             AND meta_value != ''"
+             AND meta_value != ''
+             GROUP BY meta_value
+             ORDER BY total DESC",
+            ARRAY_A
         );
 
-        $ranges = array(
-            '18-24' => 0,
-            '25-34' => 0,
-            '35-44' => 0,
-            '45-54' => 0,
-            '55-64' => 0,
-            '65+'   => 0,
-        );
-
-        $today = new DateTime( 'today' );
-
-        foreach ( $age_values as $raw ) {
-            $birth = $this->parse_birthdate( $raw );
-
-            if ( ! $birth ) {
-                continue;
-            }
-
-            $age = (int) $today->diff( $birth )->y;
-
-            if ( $age >= 18 && $age <= 24 )      $ranges['18-24']++;
-            elseif ( $age >= 25 && $age <= 34 )  $ranges['25-34']++;
-            elseif ( $age >= 35 && $age <= 44 )  $ranges['35-44']++;
-            elseif ( $age >= 45 && $age <= 54 )  $ranges['45-54']++;
-            elseif ( $age >= 55 && $age <= 64 )  $ranges['55-64']++;
-            elseif ( $age >= 65 )                $ranges['65+']++;
+        $age_breakdown = array();
+        foreach ( $exp_rows as $row ) {
+            $age_breakdown[ (string) $row['meta_value'] ] = (int) $row['total'];
         }
 
-        // Gender breakdown — Profile Builder stores gender in 'genders' meta.
+        // Gender breakdown — 'genders' user meta (Profile Builder).
         $gender_rows = $wpdb->get_results(
             "SELECT meta_value, COUNT(*) AS total
              FROM {$wpdb->usermeta}
@@ -384,13 +366,12 @@ class Analytic_Suite_Content_Repository {
         );
 
         $gender_breakdown = array();
-
         foreach ( $gender_rows as $row ) {
             $gender_breakdown[ ucfirst( (string) $row['meta_value'] ) ] = (int) $row['total'];
         }
 
         return array(
-            'age_breakdown'    => array_filter( $ranges ),
+            'age_breakdown'    => $age_breakdown,
             'gender_breakdown' => $gender_breakdown,
         );
     }
@@ -420,31 +401,6 @@ class Analytic_Suite_Content_Repository {
         $rows = $wpdb->get_col( implode( ' UNION ', $parts ) );
 
         return array_map( 'intval', $rows );
-    }
-
-    /**
-     * Parses a birth date string into a DateTime, trying common Profile Builder formats.
-     *
-     * @param string $value Raw meta value.
-     * @return DateTime|null
-     */
-    private function parse_birthdate( $value ) {
-        $value = trim( (string) $value );
-
-        if ( '' === $value ) {
-            return null;
-        }
-
-        foreach ( array( 'd/m/Y', 'Y-m-d', 'm/d/Y', 'd-m-Y', 'Y/m/d' ) as $format ) {
-            $date   = DateTime::createFromFormat( $format, $value );
-            $errors = DateTime::getLastErrors();
-
-            if ( false !== $date && empty( $errors['warning_count'] ) && empty( $errors['error_count'] ) ) {
-                return $date;
-            }
-        }
-
-        return null;
     }
 
     /**
