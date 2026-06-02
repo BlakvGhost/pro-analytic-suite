@@ -265,9 +265,16 @@ class Analytic_Suite_Booking_Repository {
         }
 
         $status_column = $this->first_existing_column( $columns, array( 'status', 'booking_status', 'event_status' ) );
-        if ( $status_column && ! empty( $filters['status'] ) ) {
-            $where[]  = '`' . esc_sql( $status_column ) . '` = %s';
-            $values[] = $filters['status'];
+        if ( $status_column ) {
+            if ( ! empty( $filters['status'] ) ) {
+                $where[]  = '`' . esc_sql( $status_column ) . '` = %s';
+                $values[] = $filters['status'];
+            } else {
+                $paid_statuses = array( 'scheduled', 'completed', 'confirmed', 'booked' );
+                $placeholders  = implode( ', ', array_fill( 0, count( $paid_statuses ), '%s' ) );
+                $where[]       = '`' . esc_sql( $status_column ) . '` IN (' . $placeholders . ')';
+                $values        = array_merge( $values, $paid_statuses );
+            }
         }
 
         $duration_column = $this->first_existing_column( $columns, array( 'slot_minutes', 'duration', 'duration_minutes', 'meeting_duration' ) );
@@ -381,11 +388,7 @@ class Analytic_Suite_Booking_Repository {
             'order'   => 'DESC',
         );
 
-        if ( ! empty( $filters['status'] ) ) {
-            $args['status'] = array( sanitize_key( $filters['status'] ) );
-        } else {
-            $args['status'] = array( 'wc-completed', 'wc-processing', 'wc-on-hold', 'wc-cancelled', 'wc-refunded', 'wc-failed' );
-        }
+        $args['status'] = array( 'wc-completed' );
 
         if ( ! empty( $filters['date_from'] ) || ! empty( $filters['date_to'] ) ) {
             $from                 = ! empty( $filters['date_from'] ) ? $filters['date_from'] : '1970-01-01';

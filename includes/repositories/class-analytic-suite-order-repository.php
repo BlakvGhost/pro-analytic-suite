@@ -166,7 +166,7 @@ class Analytic_Suite_Order_Repository {
         if ( ! empty( $filters['status'] ) ) {
             $args['status'] = array( sanitize_key( $filters['status'] ) );
         } else {
-            $args['status'] = array( 'wc-completed', 'wc-processing', 'wc-on-hold', 'wc-cancelled', 'wc-refunded', 'wc-failed' );
+            $args['status'] = array( 'wc-completed' );
         }
 
         if ( ! empty( $filters['date_from'] ) || ! empty( $filters['date_to'] ) ) {
