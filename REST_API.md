@@ -2,11 +2,32 @@
 
 Pipeline de données : **WordPress → n8n (horaire) → BigQuery → Keycloak → Looker Studio**
 
+> **Architecture :** Le plugin ne possède pas de dashboard WordPress. Toutes les statistiques sont exposées exclusivement via cette API REST. n8n consomme les endpoints `/dashboard` et `/sync/*`, pousse vers BigQuery, et Looker Studio visualise depuis BigQuery.
+
 Base URL :
 
 ```
 /wp-json/analytic-suite/v1
 ```
+
+---
+
+## Vue d'ensemble des endpoints
+
+| Endpoint | Type | Usage |
+|---|---|---|
+| `GET /dashboard` | Agrégat | Toutes les métriques filtrables en un appel |
+| `GET /summary` | Agrégat | Indicateurs clés uniquement |
+| `GET /bookings` | Agrégat | Réservations : catégories, durées, pays, civilité |
+| `GET /orders` | Agrégat | Commandes : CA, produits, statuts, civilité |
+| `GET /contents` | Agrégat | Masterclass, livres, contenus suivis |
+| `GET /filters` | Meta | Options disponibles pour les filtres |
+| `GET /status` | Health | État des intégrations |
+| `GET /sync/masterclass-registrations` | Lignes brutes | → BigQuery `masterclass_registrations` |
+| `GET /sync/expert-sessions` | Lignes brutes | → BigQuery `expert_sessions` |
+| `GET /sync/orders` | Lignes brutes | → BigQuery `wc_orders` |
+| `GET /sync/users` | Lignes brutes | → BigQuery `wp_users` |
+| `DELETE /google-analytics/cache` | Action | Vide le cache GA4 |
 
 ---
 
@@ -28,6 +49,253 @@ Authorization: Basic base64(username:application_password)
 |---|---|
 | `analytic_suite_view_analytics` | Tous les endpoints `GET` |
 | `analytic_suite_manage_analytics` | `DELETE /google-analytics/cache` |
+
+---
+
+## Endpoints d'analyse (métriques agrégées)
+
+Ces endpoints calculent des métriques agrégées filtrables. Ils sont idéaux pour alimenter directement Looker Studio ou pour que n8n pousse des snapshots horaires dans BigQuery.
+
+### Paramètres de filtre (communs à tous les endpoints d'analyse)
+
+| Paramètre | Type | Description |
+|---|---|---|
+| `period` | string | `all`, `7-days`, `30-days`, `year`, `custom`. Défaut : `all`. |
+| `date_from` | string | Date de début `YYYY-MM-DD` (requis si `period=custom`). |
+| `date_to` | string | Date de fin `YYYY-MM-DD`. |
+| `booking_type` | string | Inclure uniquement les réservations de ce type (ex: `Session`, `Diagnostic`). |
+| `exclude_booking_type` | string | Exclure les réservations de ce type. |
+| `country` | string | Code pays ISO (ex: `FR`, `BJ`). |
+| `gender` | string | Civilité (ex: `Homme`, `Femme`, `monsieur`, `madame`). |
+| `status` | string | Statut WooCommerce ou FluentBooking. |
+| `duration` | integer | Durée de session en minutes (ex: `30`, `60`). |
+| `product` | integer | ID produit WooCommerce. |
+| `customer` | string | Email client. |
+| `page_path` | string | Chemin de page GA4 (ex: `/formations/`). |
+
+---
+
+### `GET /dashboard`
+
+Retourne toutes les métriques en un seul appel. Utiliser cet endpoint pour un snapshot complet.
+
+```http
+GET /wp-json/analytic-suite/v1/dashboard?period=30-days
+GET /wp-json/analytic-suite/v1/dashboard?period=custom&date_from=2026-01-01&date_to=2026-05-31
+GET /wp-json/analytic-suite/v1/dashboard?booking_type=Session&period=year
+GET /wp-json/analytic-suite/v1/dashboard?exclude_booking_type=Diagnostic+stratégique
+```
+
+**Structure de réponse :**
+
+```json
+{
+  "filters": { "period": "30-days", "date_from": "...", "date_to": "..." },
+  "data": {
+    "summary": {
+      "orders": 320,
+      "bookings": 1216,
+      "revenue": 48000.00,
+      "average_order_value": 150.00,
+      "unique_customers": 500,
+      "recurring_customers": 120,
+      "repeat_product_customers": 45,
+      "cancelled_carts": 28,
+      "cancellation_rate": 59.21,
+      "cancelled_bookings": 720,
+      "masterclass_users": 380,
+      "book_users": 210,
+      "ga_active_users": 1800,
+      "ga_sessions": 3200,
+      "ga_page_views": 9600
+    },
+    "orders": { ... },
+    "bookings": { ... },
+    "contents": { ... },
+    "ga": { ... },
+    "generated_at": "2026-06-02 10:00:00"
+  }
+}
+```
+
+---
+
+### `GET /summary`
+
+Indicateurs clés uniquement (sous-ensemble de `/dashboard`).
+
+```json
+{
+  "filters": { ... },
+  "summary": {
+    "orders": 320,
+    "bookings": 1216,
+    "revenue": 48000.00,
+    "average_order_value": 150.00,
+    "unique_customers": 500,
+    "recurring_customers": 120,
+    "repeat_product_customers": 45,
+    "cancelled_carts": 28,
+    "cancellation_rate": 59.21,
+    "cancelled_bookings": 720
+  }
+}
+```
+
+---
+
+### `GET /bookings`
+
+Métriques réservations avec tous les breakdowns.
+
+```http
+GET /wp-json/analytic-suite/v1/bookings?period=year
+GET /wp-json/analytic-suite/v1/bookings?booking_type=Diagnostic+stratégique
+GET /wp-json/analytic-suite/v1/bookings?duration=30
+GET /wp-json/analytic-suite/v1/bookings?country=FR&period=30-days
+```
+
+**Structure de `bookings` dans la réponse :**
+
+```json
+{
+  "filters": { ... },
+  "bookings": {
+    "available": true,
+    "total_bookings": 1216,
+    "cancelled_bookings": 720,
+    "confirmed_bookings": 496,
+    "cancellation_rate": 59.21,
+    "unique_customers": 480,
+    "category_breakdown": {
+      "Session": 400,
+      "Dîner": 80,
+      "Diagnostic stratégique": 220,
+      "Autres": 516
+    },
+    "duration_breakdown": {
+      "30 min": 280,
+      "60 min": 120
+    },
+    "duration_summary": {
+      "30 min": 280,
+      "1h": 120,
+      "leader": "30 min"
+    },
+    "type_breakdown": {
+      "Session stratégique 1h": 120,
+      "Dîner découverte": 80
+    },
+    "country_breakdown": {
+      "FR": 800,
+      "BJ": 200,
+      "CI": 100
+    },
+    "gender_breakdown": {
+      "Homme": 600,
+      "Femme": 616
+    },
+    "status_breakdown": {
+      "completed": 496,
+      "cancelled": 720
+    },
+    "customer_emails": ["client1@exemple.fr", "..."]
+  }
+}
+```
+
+> **Cas d'usage :** Pour savoir combien de réservations sont des diagnostics stratégiques, passer `?booking_type=Diagnostic+stratégique`. Pour exclure les diagnostics et ne voir que sessions + dîners, passer `?exclude_booking_type=Diagnostic+stratégique`.
+
+---
+
+### `GET /orders`
+
+Métriques commandes WooCommerce.
+
+```json
+{
+  "filters": { ... },
+  "orders": {
+    "available": true,
+    "total_orders": 320,
+    "cancelled_orders": 28,
+    "revenue": 48000.00,
+    "average_order_value": 150.00,
+    "unique_customers": 280,
+    "recurring_customers": 120,
+    "repeat_product_customers": 45,
+    "retention_rate": 42.86,
+    "country_sales": { "FR": 32000.00, "BJ": 8000.00 },
+    "gender_breakdown": { "Homme": 160, "Femme": 160 },
+    "product_sales": [
+      { "name": "Masterclass Premium", "quantity": 200, "revenue": 30000.00 },
+      { "name": "Session 1h", "quantity": 120, "revenue": 18000.00 }
+    ],
+    "status_breakdown": { "completed": 280, "cancelled": 28, "refunded": 12 }
+  }
+}
+```
+
+---
+
+### `GET /contents`
+
+Métriques contenus (masterclass, livres).
+
+```json
+{
+  "filters": { ... },
+  "contents": {
+    "available": true,
+    "masterclass_table": true,
+    "books_table": true,
+    "total_masterclasses": 45,
+    "total_books": 12,
+    "masterclass_users": 380,
+    "book_users": 210,
+    "masterclass_follows": 1200,
+    "book_downloads": 640,
+    "top_masterclasses": {
+      "Session leadership avancé": 180,
+      "Masterclass gestion de projet": 140
+    },
+    "top_books": {
+      "Guide stratégie 2026": 120,
+      "Leadership et influence": 95
+    },
+    "masterclass_by_month": {
+      "2026-01": 80,
+      "2026-02": 110,
+      "2026-03": 95
+    },
+    "books_by_month": { ... },
+    "upcoming_masterclasses": 8,
+    "masterclass_replays": 32
+  }
+}
+```
+
+---
+
+### `GET /filters`
+
+Retourne les valeurs disponibles pour construire des filtres dynamiques.
+
+```json
+{
+  "filters": { ... },
+  "options": {
+    "countries":             ["FR", "BJ", "CI", "SN"],
+    "statuses":              ["completed", "cancelled", "scheduled"],
+    "booking_types":         ["Session stratégique 1h", "Dîner découverte", "Diagnostic stratégique"],
+    "exclude_booking_types": ["Session stratégique 1h", "Dîner découverte", "Diagnostic stratégique"],
+    "durations":             { "30": "30 min", "60": "60 min" },
+    "products":              { "12": "Masterclass Premium", "15": "Session 1h" },
+    "genders":               ["Homme", "Femme"],
+    "customers":             { "client@ex.fr": "client@ex.fr" }
+  }
+}
+```
 
 ---
 

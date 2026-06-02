@@ -64,6 +64,29 @@ class Analytic_Suite_REST_Controller {
 			);
 		}
 
+		// Dashboard endpoints.
+		$dashboard_routes = array(
+			'/dashboard' => 'get_dashboard',
+			'/summary'   => 'get_summary',
+			'/bookings'  => 'get_bookings',
+			'/orders'    => 'get_orders',
+			'/contents'  => 'get_contents',
+			'/filters'   => 'get_filter_options_response',
+		);
+
+		foreach ( $dashboard_routes as $route => $callback ) {
+			register_rest_route(
+				$this->namespace,
+				$route,
+				array(
+					'methods'             => WP_REST_Server::READABLE,
+					'callback'            => array( $this, $callback ),
+					'permission_callback' => array( $this, 'can_read_analytics' ),
+					'args'                => $this->get_filter_args(),
+				)
+			);
+		}
+
 		register_rest_route(
 			$this->namespace,
 			'/status',
@@ -101,6 +124,83 @@ class Analytic_Suite_REST_Controller {
 	 */
 	public function can_manage_analytics() {
 		return current_user_can( 'analytic_suite_manage_analytics' );
+	}
+
+	// -------------------------------------------------------------------------
+	// Dashboard endpoints
+	// -------------------------------------------------------------------------
+
+	/**
+	 * Returns full dashboard data.
+	 *
+	 * @param WP_REST_Request $request REST request.
+	 * @return WP_REST_Response
+	 */
+	public function get_dashboard( $request ) {
+		$filters = $this->dashboard_service->get_filters_from_request( $request->get_params() );
+		$data    = $this->dashboard_service->get_dashboard_data( $filters );
+		return rest_ensure_response( array( 'filters' => $filters, 'data' => $data ) );
+	}
+
+	/**
+	 * Returns summary metrics only.
+	 *
+	 * @param WP_REST_Request $request REST request.
+	 * @return WP_REST_Response
+	 */
+	public function get_summary( $request ) {
+		$filters = $this->dashboard_service->get_filters_from_request( $request->get_params() );
+		$data    = $this->dashboard_service->get_dashboard_data( $filters );
+		return rest_ensure_response( array( 'filters' => $filters, 'summary' => $data['summary'] ) );
+	}
+
+	/**
+	 * Returns booking metrics.
+	 *
+	 * @param WP_REST_Request $request REST request.
+	 * @return WP_REST_Response
+	 */
+	public function get_bookings( $request ) {
+		$filters = $this->dashboard_service->get_filters_from_request( $request->get_params() );
+		$data    = $this->dashboard_service->get_dashboard_data( $filters );
+		return rest_ensure_response( array( 'filters' => $filters, 'bookings' => $data['bookings'] ) );
+	}
+
+	/**
+	 * Returns order metrics.
+	 *
+	 * @param WP_REST_Request $request REST request.
+	 * @return WP_REST_Response
+	 */
+	public function get_orders( $request ) {
+		$filters = $this->dashboard_service->get_filters_from_request( $request->get_params() );
+		$data    = $this->dashboard_service->get_dashboard_data( $filters );
+		return rest_ensure_response( array( 'filters' => $filters, 'orders' => $data['orders'] ) );
+	}
+
+	/**
+	 * Returns content metrics.
+	 *
+	 * @param WP_REST_Request $request REST request.
+	 * @return WP_REST_Response
+	 */
+	public function get_contents( $request ) {
+		$filters = $this->dashboard_service->get_filters_from_request( $request->get_params() );
+		$data    = $this->dashboard_service->get_dashboard_data( $filters );
+		return rest_ensure_response( array( 'filters' => $filters, 'contents' => $data['contents'] ) );
+	}
+
+	/**
+	 * Returns available filter options.
+	 *
+	 * @param WP_REST_Request $request REST request.
+	 * @return WP_REST_Response
+	 */
+	public function get_filter_options_response( $request ) {
+		return rest_ensure_response( array(
+			'filters' => $this->dashboard_service->get_filters_from_request( $request->get_params() ),
+			'options' => $this->dashboard_service->get_filter_options(),
+		) );
 	}
 
 	// -------------------------------------------------------------------------
@@ -282,6 +382,28 @@ class Analytic_Suite_REST_Controller {
 			),
 			'rows' => $result['rows'],
 		) );
+	}
+
+	/**
+	 * Returns REST arg definitions for dashboard/filter endpoints.
+	 *
+	 * @return array
+	 */
+	private function get_filter_args() {
+		return array(
+			'period'               => array( 'type' => 'string', 'sanitize_callback' => 'sanitize_key' ),
+			'date_from'            => array( 'type' => 'string', 'sanitize_callback' => 'sanitize_text_field' ),
+			'date_to'              => array( 'type' => 'string', 'sanitize_callback' => 'sanitize_text_field' ),
+			'country'              => array( 'type' => 'string', 'sanitize_callback' => 'sanitize_text_field' ),
+			'status'               => array( 'type' => 'string', 'sanitize_callback' => 'sanitize_text_field' ),
+			'booking_type'         => array( 'type' => 'string', 'sanitize_callback' => 'sanitize_text_field' ),
+			'exclude_booking_type' => array( 'type' => 'string', 'sanitize_callback' => 'sanitize_text_field' ),
+			'duration'             => array( 'type' => 'integer', 'sanitize_callback' => 'absint' ),
+			'product'              => array( 'type' => 'integer', 'sanitize_callback' => 'absint' ),
+			'gender'               => array( 'type' => 'string', 'sanitize_callback' => 'sanitize_text_field' ),
+			'customer'             => array( 'type' => 'string', 'sanitize_callback' => 'sanitize_text_field' ),
+			'page_path'            => array( 'type' => 'string', 'sanitize_callback' => 'sanitize_text_field' ),
+		);
 	}
 
 	/**
