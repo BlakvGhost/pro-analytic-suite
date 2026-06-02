@@ -1,179 +1,375 @@
-# Documentation API REST - Pro Analytics Suite
+# API REST — Pro Analytics Suite
+
+Pipeline de données : **WordPress → n8n (horaire) → BigQuery → Keycloak → Looker Studio**
 
 Base URL :
 
-```text
+```
 /wp-json/analytic-suite/v1
 ```
 
-L'API expose les donnees utilisees par le dashboard WordPress afin de permettre la creation d'un frontend separe.
+---
 
 ## Authentification
 
-Les endpoints de lecture demandent la capacite WordPress `analytic_suite_view_analytics`.
+L'API utilise les **WordPress Application Passwords** (HTTP Basic Auth).
 
-Les actions de gestion demandent `analytic_suite_manage_analytics`.
-
-Depuis un frontend connecte a WordPress, envoyer le nonce REST :
-
-```http
-X-WP-Nonce: <nonce>
-```
-
-Depuis une application externe, utiliser une methode supportee par WordPress REST API, par exemple les Application Passwords.
-
-## Filtres
-
-Tous les endpoints GET acceptent les memes filtres :
-
-| Parametre | Type | Description |
-| --- | --- | --- |
-| `period` | string | `all`, `7-days`, `30-days`, `year`, `custom`. Defaut : `all`. |
-| `date_from` | string | Date de debut `YYYY-MM-DD`. |
-| `date_to` | string | Date de fin `YYYY-MM-DD`. |
-| `country` | string | Filtre pays sur commandes/reservations quand disponible. |
-| `status` | string | Statut WooCommerce ou FluentBooking. |
-| `booking_type` | string | Type/categorie de reservation a inclure. |
-| `exclude_booking_type` | string | Type/categorie de reservation a exclure. |
-| `duration` | integer | Duree de reservation en minutes, ex. `30` ou `60`. |
-| `product` | integer | ID produit WooCommerce. |
-| `gender` | string | Civilite/genre, ex. `Homme`, `Femme`, `monsieur`, `madame`. |
-| `customer` | string | Email client. |
-| `page_path` | string | Chemin de page pour filtrer GA4, ex. `/formations/`. |
-
-Exemple :
+1. Dans WordPress, aller dans **Utilisateurs > Votre profil > Mots de passe d'application**.
+2. Créer un mot de passe dédié pour n8n.
+3. Passer les credentials en Basic Auth sur chaque requête :
 
 ```http
-GET /wp-json/analytic-suite/v1/dashboard?period=custom&date_from=2026-01-01&date_to=2026-05-19&country=BJ
+Authorization: Basic base64(username:application_password)
 ```
 
-## Endpoints
+> Toujours appeler l'API via HTTPS.
 
-### `GET /dashboard`
+| Capacité requise | Endpoints |
+|---|---|
+| `analytic_suite_view_analytics` | Tous les endpoints `GET` |
+| `analytic_suite_manage_analytics` | `DELETE /google-analytics/cache` |
 
-Retourne toutes les donnees du dashboard.
+---
+
+## Endpoints de synchronisation
+
+Les quatre endpoints `/sync/*` retournent des **lignes plates** (flat rows), prêtes à être insérées dans BigQuery sans transformation. Ils supportent tous la pagination et le filtrage incrémental via `updated_after`.
+
+### Paramètres communs
+
+| Paramètre | Type | Description |
+|---|---|---|
+| `updated_after` | string | ISO 8601. Retourne uniquement les enregistrements créés/modifiés **après** cette date. Laisser vide pour un export complet. |
+| `per_page` | integer | Lignes par page. Max 500, défaut 200. |
+| `page` | integer | Numéro de page (base 1). Défaut 1. |
+
+### Enveloppe de réponse
+
+Tous les endpoints `/sync/*` retournent la même structure :
 
 ```json
 {
-  "filters": {
-    "period": "30-days",
-    "date_from": "2026-04-20",
-    "date_to": "2026-05-19"
+  "meta": {
+    "total": 1234,
+    "page": 1,
+    "per_page": 200,
+    "total_pages": 7,
+    "generated_at": "2026-06-02T10:00:00+00:00",
+    "source": "wp_user_masterclass"
   },
-  "data": {
-    "summary": {},
-    "orders": {},
-    "bookings": {},
-    "contents": {},
-    "ga": {},
-    "ga_status": {},
-    "generated_at": "2026-05-19 12:00:00"
-  }
+  "rows": [ ... ]
 }
 ```
 
-### `GET /summary`
+Pour parcourir toutes les pages dans n8n, boucler tant que `meta.page < meta.total_pages`.
 
-Retourne les indicateurs globaux : commandes, reservations, chiffre d'affaires, panier moyen, clients, annulations, contenus et indicateurs GA4 principaux.
+---
 
-### `GET /clients`
+### `GET /sync/masterclass-registrations`
 
-Retourne les donnees utiles a une vue clients : clients uniques, clients recurrents, clients ayant repris un produit, taux de fidelisation, repartitions pays/civilite et emails clients.
+Inscriptions aux masterclass depuis `wp_user_masterclass`, enrichies avec les métadonnées utilisateur.
 
-### `GET /orders`
+**Table BigQuery cible :** `masterclass_registrations`
 
-Retourne les donnees WooCommerce : commandes, chiffre d'affaires, panier moyen, clients, ventes par pays, ventes par produit, statuts, civilites et emails.
-
-### `GET /bookings`
-
-Retourne les donnees FluentBooking et les reservations liees aux commandes WooCommerce : totaux, annulations, statuts, types, categories, durees, pays, civilites et emails.
-
-### `GET /contents`
-
-Retourne les donnees de contenus : masterclass, livres, suivis, consultations, utilisateurs uniques, tops contenus, repartition mensuelle, replays et contenus a venir.
-
-### `GET /google-analytics`
-
-Alias : `GET /ga`.
-
-Retourne les donnees GA4 : statut de configuration, synthese, pages les plus vues, demographics, sources de trafic et temps reel.
-
-Exemple avec filtre page :
+**Exemple de requête :**
 
 ```http
-GET /wp-json/analytic-suite/v1/ga?period=30-days&page_path=/ma-page/
+GET /wp-json/analytic-suite/v1/sync/masterclass-registrations?updated_after=2026-06-01T00:00:00Z&per_page=200
+Authorization: Basic ...
 ```
 
-### `GET /reports`
+**Schéma d'une ligne :**
 
-Retourne les donnees completes du dashboard avec `export_rows`, utile pour construire une page de rapport ou une previsualisation d'export.
+```json
+{
+  "id": 123,
+  "user_id": 45,
+  "post_id": 789,
+  "masterclass_title": "Session leadership avancé",
+  "registered_at": "2026-05-15T14:30:00+00:00",
+  "user_email": "jean.dupont@exemple.fr",
+  "user_display_name": "Jean Dupont",
+  "user_registered_at": "2025-01-10T09:00:00+00:00",
+  "user_experience": "5-10 ans",
+  "user_gender": "homme",
+  "user_disability": null
+}
+```
 
-### `GET /export-rows`
+| Champ | Type BQ | Source |
+|---|---|---|
+| `id` | INTEGER | `wp_user_masterclass.id` |
+| `user_id` | INTEGER | `wp_user_masterclass.user_id` |
+| `post_id` | INTEGER | `wp_user_masterclass.post_id` |
+| `masterclass_title` | STRING | `wp_posts.post_title` |
+| `registered_at` | TIMESTAMP | `wp_user_masterclass.created_at` |
+| `user_email` | STRING | `wp_users.user_email` |
+| `user_display_name` | STRING | `wp_users.display_name` |
+| `user_registered_at` | TIMESTAMP | `wp_users.user_registered` |
+| `user_experience` | STRING | `wp_usermeta.field_experience` |
+| `user_gender` | STRING | `wp_usermeta.genders` |
+| `user_disability` | STRING | `wp_usermeta.handicap` |
 
-Retourne uniquement les lignes de synthese actuellement utilisees par les exports CSV/Excel/PDF, au format JSON.
+---
+
+### `GET /sync/expert-sessions`
+
+Sessions FluentBooking enrichies avec les données WooCommerce (email, pays, genre, statut de commande).
+
+**Table BigQuery cible :** `expert_sessions`
+
+**Exemple de requête :**
+
+```http
+GET /wp-json/analytic-suite/v1/sync/expert-sessions?updated_after=2026-06-01T00:00:00Z&per_page=200
+Authorization: Basic ...
+```
+
+**Schéma d'une ligne :**
+
+```json
+{
+  "booking_id": 456,
+  "order_id": 789,
+  "user_email": "marie.martin@exemple.fr",
+  "service_label": "Session stratégique 1h",
+  "category": "Session",
+  "status": "completed",
+  "duration_minutes": 60,
+  "scheduled_at": "2026-05-20T10:00:00+00:00",
+  "country": "FR",
+  "gender": "Femme",
+  "created_at": "2026-05-10T08:00:00+00:00",
+  "updated_at": "2026-05-20T11:05:00+00:00"
+}
+```
+
+| Champ | Type BQ | Source |
+|---|---|---|
+| `booking_id` | INTEGER | Table FluentBooking |
+| `order_id` | INTEGER | `wp_woocommerce_order_items` via `__fcal_booking_id` |
+| `user_email` | STRING | FluentBooking ou commande WC |
+| `service_label` | STRING | Nom de l'événement FluentBooking ou produit WC |
+| `category` | STRING | `Session` \| `Dîner` \| `Diagnostic stratégique` \| `Autres` |
+| `status` | STRING | Statut FluentBooking ou statut WC |
+| `duration_minutes` | INTEGER | `slot_minutes` ou calculé (end - start) |
+| `scheduled_at` | TIMESTAMP | `start_at` |
+| `country` | STRING | FluentBooking ou facturation WC |
+| `gender` | STRING | Métadonnée WC `gender_` |
+| `created_at` | TIMESTAMP | `created_at` |
+| `updated_at` | TIMESTAMP | `updated_at` \| `modified_at` \| `created_at` |
+
+> **Note :** le filtre `updated_after` s'applique sur la colonne `updated_at` si elle existe dans la table FluentBooking détectée, sinon sur `created_at`.
+
+---
+
+### `GET /sync/orders`
+
+Commandes WooCommerce avec lignes d'articles sérialisées en JSON.
+
+**Table BigQuery cible :** `wc_orders`
+
+**Exemple de requête :**
+
+```http
+GET /wp-json/analytic-suite/v1/sync/orders?updated_after=2026-06-01T00:00:00Z&per_page=200
+Authorization: Basic ...
+```
+
+**Schéma d'une ligne :**
+
+```json
+{
+  "order_id": 1042,
+  "status": "completed",
+  "total": 150.00,
+  "currency": "EUR",
+  "billing_email": "client@exemple.fr",
+  "billing_country": "FR",
+  "gender": "Homme",
+  "created_at": "2026-05-10T08:00:00+00:00",
+  "modified_at": "2026-05-10T09:15:00+00:00",
+  "items_json": "[{\"product_id\":12,\"name\":\"Masterclass Premium\",\"quantity\":1,\"total\":150.00}]"
+}
+```
+
+| Champ | Type BQ | Source |
+|---|---|---|
+| `order_id` | INTEGER | `wc_orders.id` |
+| `status` | STRING | Statut WC sans préfixe (`completed`, `cancelled`…) |
+| `total` | FLOAT | Montant total TTC |
+| `currency` | STRING | Devise ISO 4217 |
+| `billing_email` | STRING | Email de facturation |
+| `billing_country` | STRING | Code pays ISO 3166-1 |
+| `gender` | STRING | Métadonnée commande `gender_` |
+| `created_at` | TIMESTAMP | Date de création (WC_DateTime) |
+| `modified_at` | TIMESTAMP | Date de modification (WC_DateTime) |
+| `items_json` | STRING | JSON des lignes d'articles (parseable en BQ avec JSON_EXTRACT) |
+
+> Le filtre `updated_after` s'applique sur `date_modified`.
+
+---
+
+### `GET /sync/users`
+
+Utilisateurs WordPress inscrits avec métadonnées de profil.
+
+**Table BigQuery cible :** `wp_users`
+
+**Exemple de requête :**
+
+```http
+GET /wp-json/analytic-suite/v1/sync/users?updated_after=2026-06-01T00:00:00Z&per_page=200
+Authorization: Basic ...
+```
+
+**Schéma d'une ligne :**
+
+```json
+{
+  "user_id": 45,
+  "user_email": "jean.dupont@exemple.fr",
+  "user_display_name": "Jean Dupont",
+  "registered_at": "2025-01-10T09:00:00+00:00",
+  "experience": "5-10 ans",
+  "gender": "homme",
+  "disability": null,
+  "last_login": "2026-05-30T18:45:22+00:00"
+}
+```
+
+| Champ | Type BQ | Source |
+|---|---|---|
+| `user_id` | INTEGER | `wp_users.ID` |
+| `user_email` | STRING | `wp_users.user_email` |
+| `user_display_name` | STRING | `wp_users.display_name` |
+| `registered_at` | TIMESTAMP | `wp_users.user_registered` |
+| `experience` | STRING | `wp_usermeta.field_experience` |
+| `gender` | STRING | `wp_usermeta.genders` |
+| `disability` | STRING | `wp_usermeta.handicap` |
+| `last_login` | STRING | `wp_usermeta.last_login` |
+
+> Le filtre `updated_after` s'applique sur `user_registered` (nouveaux utilisateurs uniquement). Pour les mises à jour de métadonnées, planifier un sync complet quotidien sans `updated_after`.
+
+---
+
+## Endpoint utilitaire
 
 ### `GET /status`
 
-Retourne l'etat des integrations :
+Health check pour n8n. Retourne l'état de chaque intégration et la liste des endpoints disponibles.
 
-- WooCommerce,
-- FluentBooking,
-- tables de contenus,
-- Google Analytics,
-- derniere synchronisation,
-- version du plugin.
-
-### `GET /filters`
-
-Retourne les filtres normalises et les options disponibles pour construire l'interface de filtrage.
+**Exemple de réponse :**
 
 ```json
 {
-  "filters": {},
-  "options": {
-    "countries": [],
-    "statuses": [],
-    "booking_types": [],
-    "exclude_booking_types": [],
-    "durations": {},
-    "products": {},
-    "genders": [],
-    "customers": {}
-  }
+  "plugin_version": "0.1.3",
+  "generated_at": "2026-06-02T10:00:00+00:00",
+  "last_sync": "2026-06-02T09:00:00",
+  "integrations": {
+    "woocommerce":      { "available": true },
+    "fluentbooking":    { "available": true, "table": "wp_fcal_bookings" },
+    "user_masterclass": { "available": true },
+    "user_livres":      { "available": false },
+    "google_analytics": { "configured": true, "property_id": "123456789", "last_error": "" }
+  },
+  "sync_endpoints": [
+    "analytic-suite/v1/sync/masterclass-registrations",
+    "analytic-suite/v1/sync/expert-sessions",
+    "analytic-suite/v1/sync/orders",
+    "analytic-suite/v1/sync/users"
+  ]
 }
 ```
 
-### `GET /public`
-
-Retourne les donnees utilisees par le shortcode public `[analytics_public]` : statistiques demographiques WordPress, page GA4 publique configuree et donnees GA4 filtrees sur cette page.
+---
 
 ### `DELETE /google-analytics/cache`
 
-Vide le cache Google Analytics. Capacite requise : `analytic_suite_manage_analytics`.
+Vide le cache GA4 (transients WordPress).
+
+Requiert la capacité `analytic_suite_manage_analytics`.
 
 ```json
-{
-  "success": true,
-  "message": "Cache Google Analytics vidé."
-}
+{ "success": true, "message": "Cache Google Analytics vidé." }
 ```
 
-## Exemple JavaScript WordPress
+---
+
+## Configuration n8n (job horaire)
+
+### Workflow recommandé
+
+```
+Trigger : Schedule (toutes les heures)
+    ↓
+GET /status  →  si intégration non disponible : Stop + notification
+    ↓
+Pour chaque endpoint sync :
+  Boucle pages :
+    GET /sync/{endpoint}?updated_after={{ $now.minus(1, "hour").toISO() }}&per_page=200&page={{ $page }}
+        ↓
+    Insérer rows dans BigQuery (table correspondante)
+        ↓
+    Si page < total_pages : incrémenter $page et reboucler
+```
+
+### Credentials n8n
+
+| Champ | Valeur |
+|---|---|
+| Authentification | Basic Auth |
+| Utilisateur | Login WordPress dédié |
+| Mot de passe | Application Password généré dans WordPress |
+| URL de base | `https://votre-domaine.com/wp-json/analytic-suite/v1` |
+
+### Expression `updated_after` dans n8n
 
 ```js
-const response = await fetch('/wp-json/analytic-suite/v1/dashboard?period=30-days', {
-  headers: {
-    'X-WP-Nonce': window.wpApiSettings.nonce
-  }
-});
-
-const payload = await response.json();
-console.log(payload.data.summary);
+// Dans le nœud HTTP Request, paramètre updated_after :
+{{ $now.minus(1, "hour").toISO() }}
+// Exemple : 2026-06-02T09:00:00.000Z
 ```
 
-## Notes frontend
+Pour un sync complet initial (sans filtre de date), ne pas passer `updated_after` et boucler sur toutes les pages.
 
-- Utiliser `GET /filters` au chargement pour remplir les selects.
-- Utiliser `GET /dashboard` si une page a besoin de toutes les donnees.
-- Utiliser les endpoints de section (`/orders`, `/bookings`, `/contents`, `/ga`) pour limiter le volume quand une vue est specialisee.
-- Les champs `available` indiquent si WooCommerce, FluentBooking ou les tables de contenus sont detectes.
+### Tables BigQuery et schémas suggérés
+
+```sql
+-- masterclass_registrations
+CREATE TABLE IF NOT EXISTS `projet.dataset.masterclass_registrations` (
+  id INT64, user_id INT64, post_id INT64,
+  masterclass_title STRING, registered_at TIMESTAMP,
+  user_email STRING, user_display_name STRING,
+  user_registered_at TIMESTAMP, user_experience STRING,
+  user_gender STRING, user_disability STRING
+);
+
+-- expert_sessions
+CREATE TABLE IF NOT EXISTS `projet.dataset.expert_sessions` (
+  booking_id INT64, order_id INT64, user_email STRING,
+  service_label STRING, category STRING, status STRING,
+  duration_minutes INT64, scheduled_at TIMESTAMP,
+  country STRING, gender STRING,
+  created_at TIMESTAMP, updated_at TIMESTAMP
+);
+
+-- wc_orders
+CREATE TABLE IF NOT EXISTS `projet.dataset.wc_orders` (
+  order_id INT64, status STRING, total FLOAT64,
+  currency STRING, billing_email STRING,
+  billing_country STRING, gender STRING,
+  created_at TIMESTAMP, modified_at TIMESTAMP,
+  items_json STRING
+);
+
+-- wp_users
+CREATE TABLE IF NOT EXISTS `projet.dataset.wp_users` (
+  user_id INT64, user_email STRING,
+  user_display_name STRING, registered_at TIMESTAMP,
+  experience STRING, gender STRING,
+  disability STRING, last_login STRING
+);
+```
+
+> Les données GA4 alimentent BigQuery via l'**export natif Google** (connexion directe GA4 → BigQuery dans la console GA4), indépendamment de ce plugin.

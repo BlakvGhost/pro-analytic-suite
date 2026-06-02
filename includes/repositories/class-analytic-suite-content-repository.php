@@ -15,6 +15,77 @@ if ( ! defined( 'ABSPATH' ) ) {
 class Analytic_Suite_Content_Repository {
 
     /**
+     * Returns paginated masterclass registration rows enriched with user meta.
+     *
+     * @param array $filters { updated_after: string, per_page: int, page: int }
+     * @return array { total: int, rows: array }
+     */
+    public function get_masterclass_rows( $filters ) {
+        global $wpdb;
+
+        if ( ! $this->table_exists( 'user_masterclass' ) ) {
+            return array( 'total' => 0, 'rows' => array() );
+        }
+
+        $per_page = min( 500, max( 1, (int) ( $filters['per_page'] ?? 200 ) ) );
+        $page     = max( 1, (int) ( $filters['page'] ?? 1 ) );
+        $offset   = ( $page - 1 ) * $per_page;
+        $table    = $wpdb->prefix . 'user_masterclass';
+
+        $where  = array( '1=1' );
+        $values = array();
+
+        if ( ! empty( $filters['updated_after'] ) ) {
+            $where[]  = 'created_at > %s';
+            $values[] = $filters['updated_after'];
+        }
+
+        $where_sql = implode( ' AND ', $where );
+
+        if ( ! empty( $values ) ) {
+            $total    = (int) $wpdb->get_var( $wpdb->prepare( 'SELECT COUNT(*) FROM `' . esc_sql( $table ) . '` WHERE ' . $where_sql, $values ) );
+            $raw_rows = $wpdb->get_results(
+                $wpdb->prepare( 'SELECT * FROM `' . esc_sql( $table ) . '` WHERE ' . $where_sql . ' ORDER BY created_at ASC LIMIT %d OFFSET %d', array_merge( $values, array( $per_page, $offset ) ) ),
+                ARRAY_A
+            );
+        } else {
+            $total    = (int) $wpdb->get_var( 'SELECT COUNT(*) FROM `' . esc_sql( $table ) . '` WHERE ' . $where_sql );
+            $raw_rows = $wpdb->get_results(
+                $wpdb->prepare( 'SELECT * FROM `' . esc_sql( $table ) . '` WHERE ' . $where_sql . ' ORDER BY created_at ASC LIMIT %d OFFSET %d', array( $per_page, $offset ) ),
+                ARRAY_A
+            );
+        }
+
+        $rows = array();
+
+        foreach ( (array) $raw_rows as $raw ) {
+            $user_id = absint( $raw['user_id'] ?? 0 );
+            $post_id = absint( $raw['post_id'] ?? 0 );
+            $user    = $user_id ? get_userdata( $user_id ) : null;
+
+            $rows[] = array(
+                'id'                 => absint( $raw['id'] ?? 0 ),
+                'user_id'            => $user_id ?: null,
+                'post_id'            => $post_id ?: null,
+                'masterclass_title'  => $post_id ? get_the_title( $post_id ) : null,
+                'registered_at'      => ! empty( $raw['created_at'] )
+                    ? gmdate( 'c', strtotime( $raw['created_at'] ) )
+                    : null,
+                'user_email'         => $user ? $user->user_email : null,
+                'user_display_name'  => $user ? $user->display_name : null,
+                'user_registered_at' => $user && $user->user_registered
+                    ? gmdate( 'c', strtotime( $user->user_registered ) )
+                    : null,
+                'user_experience'    => $user_id ? ( get_user_meta( $user_id, 'field_experience', true ) ?: null ) : null,
+                'user_gender'        => $user_id ? ( get_user_meta( $user_id, 'genders', true ) ?: null ) : null,
+                'user_disability'    => $user_id ? ( get_user_meta( $user_id, 'handicap', true ) ?: null ) : null,
+            );
+        }
+
+        return array( 'total' => $total, 'rows' => $rows );
+    }
+
+    /**
      * Gets content metrics.
      *
      * @param array $filters Filters.

@@ -15,6 +15,76 @@ if ( ! defined( 'ABSPATH' ) ) {
 class Analytic_Suite_Order_Repository {
 
     /**
+     * Returns paginated flat order rows for BigQuery export.
+     *
+     * @param array $filters { updated_after: string, per_page: int, page: int }
+     * @return array { total: int, rows: array }
+     */
+    public function get_export_rows( $filters ) {
+        if ( ! function_exists( 'wc_get_orders' ) ) {
+            return array( 'total' => 0, 'rows' => array() );
+        }
+
+        $per_page = min( 500, max( 1, (int) ( $filters['per_page'] ?? 200 ) ) );
+        $page     = max( 1, (int) ( $filters['page'] ?? 1 ) );
+
+        $args = array(
+            'limit'    => $per_page,
+            'paged'    => $page,
+            'return'   => 'objects',
+            'orderby'  => 'date',
+            'order'    => 'ASC',
+            'status'   => 'any',
+            'paginate' => true,
+        );
+
+        if ( ! empty( $filters['updated_after'] ) ) {
+            $args['date_modified'] = $filters['updated_after'] . '...';
+        }
+
+        $result = wc_get_orders( $args );
+        $orders = $result->orders ?? array();
+        $total  = (int) ( $result->total ?? 0 );
+
+        $rows = array();
+
+        foreach ( $orders as $order ) {
+            if ( ! $order instanceof WC_Order ) {
+                continue;
+            }
+
+            $items = array();
+            foreach ( $order->get_items() as $item ) {
+                $items[] = array(
+                    'product_id' => $item->get_product_id(),
+                    'name'       => $item->get_name(),
+                    'quantity'   => (int) $item->get_quantity(),
+                    'total'      => round( (float) $item->get_total(), 2 ),
+                );
+            }
+
+            $rows[] = array(
+                'order_id'        => $order->get_id(),
+                'status'          => $order->get_status(),
+                'total'           => round( (float) $order->get_total(), 2 ),
+                'currency'        => $order->get_currency(),
+                'billing_email'   => strtolower( (string) $order->get_billing_email() ) ?: null,
+                'billing_country' => $order->get_billing_country() ?: null,
+                'gender'          => $this->normalize_gender( $order->get_meta( 'gender_' ) ) ?: null,
+                'created_at'      => $order->get_date_created()
+                    ? $order->get_date_created()->format( 'c' )
+                    : null,
+                'modified_at'     => $order->get_date_modified()
+                    ? $order->get_date_modified()->format( 'c' )
+                    : null,
+                'items_json'      => wp_json_encode( $items ),
+            );
+        }
+
+        return array( 'total' => $total, 'rows' => $rows );
+    }
+
+    /**
      * Gets order metrics.
      *
      * @param array $filters Filters.

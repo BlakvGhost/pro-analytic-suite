@@ -1,475 +1,342 @@
 <?php
 /**
- * REST API controller.
+ * REST API controller — BigQuery sync endpoints.
  *
  * @package Analytic_Suite
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
-    exit;
+	exit;
 }
 
 /**
- * Exposes dashboard analytics through WordPress REST API routes.
+ * Exposes flat-row sync endpoints consumed by the n8n → BigQuery pipeline.
+ *
+ * Authentication: WordPress Application Passwords (Basic Auth).
+ * Required capability: analytic_suite_view_analytics (read) / analytic_suite_manage_analytics (write).
  */
 class Analytic_Suite_REST_Controller {
 
-    /**
-     * REST namespace.
-     *
-     * @var string
-     */
-    private $namespace = 'analytic-suite/v1';
+	/**
+	 * REST namespace.
+	 *
+	 * @var string
+	 */
+	private $namespace = 'analytic-suite/v1';
 
-    /**
-     * Dashboard service.
-     *
-     * @var Analytic_Suite_Dashboard_Service
-     */
-    private $dashboard_service;
+	/**
+	 * Dashboard service (used for GA cache clear).
+	 *
+	 * @var Analytic_Suite_Dashboard_Service
+	 */
+	private $dashboard_service;
 
-    /**
-     * Constructor.
-     *
-     * @param Analytic_Suite_Dashboard_Service $dashboard_service Dashboard service.
-     */
-    public function __construct( Analytic_Suite_Dashboard_Service $dashboard_service ) {
-        $this->dashboard_service = $dashboard_service;
-    }
+	/**
+	 * Constructor.
+	 *
+	 * @param Analytic_Suite_Dashboard_Service $dashboard_service Dashboard service.
+	 */
+	public function __construct( Analytic_Suite_Dashboard_Service $dashboard_service ) {
+		$this->dashboard_service = $dashboard_service;
+	}
 
-    /**
-     * Registers REST routes.
-     */
-    public function register_routes() {
-        $read_routes = array(
-            '/dashboard'        => 'get_dashboard',
-            '/summary'          => 'get_summary',
-            '/clients'          => 'get_clients',
-            '/orders'           => 'get_orders',
-            '/bookings'         => 'get_bookings',
-            '/contents'         => 'get_contents',
-            '/google-analytics' => 'get_google_analytics',
-            '/ga'               => 'get_google_analytics',
-            '/reports'          => 'get_reports',
-            '/export-rows'      => 'get_export_rows',
-            '/status'           => 'get_status',
-            '/filters'          => 'get_filter_options_response',
-            '/public'           => 'get_public',
-        );
+	/**
+	 * Registers REST routes.
+	 */
+	public function register_routes() {
+		$sync_routes = array(
+			'/sync/masterclass-registrations' => 'sync_masterclass_registrations',
+			'/sync/expert-sessions'           => 'sync_expert_sessions',
+			'/sync/orders'                    => 'sync_orders',
+			'/sync/users'                     => 'sync_users',
+		);
 
-        foreach ( $read_routes as $route => $callback ) {
-            register_rest_route(
-                $this->namespace,
-                $route,
-                array(
-                    'methods'             => WP_REST_Server::READABLE,
-                    'callback'            => array( $this, $callback ),
-                    'permission_callback' => array( $this, 'can_read_analytics' ),
-                    'args'                => $this->get_filter_args(),
-                )
-            );
-        }
+		foreach ( $sync_routes as $route => $callback ) {
+			register_rest_route(
+				$this->namespace,
+				$route,
+				array(
+					'methods'             => WP_REST_Server::READABLE,
+					'callback'            => array( $this, $callback ),
+					'permission_callback' => array( $this, 'can_read_analytics' ),
+					'args'                => $this->get_sync_args(),
+				)
+			);
+		}
 
-        register_rest_route(
-            $this->namespace,
-            '/google-analytics/cache',
-            array(
-                'methods'             => WP_REST_Server::DELETABLE,
-                'callback'            => array( $this, 'clear_google_analytics_cache' ),
-                'permission_callback' => array( $this, 'can_manage_analytics' ),
-            )
-        );
-    }
+		register_rest_route(
+			$this->namespace,
+			'/status',
+			array(
+				'methods'             => WP_REST_Server::READABLE,
+				'callback'            => array( $this, 'get_status' ),
+				'permission_callback' => array( $this, 'can_read_analytics' ),
+			)
+		);
 
-    /**
-     * Checks read permission.
-     *
-     * @return bool
-     */
-    public function can_read_analytics() {
-        return current_user_can( 'analytic_suite_view_analytics' );
-    }
+		register_rest_route(
+			$this->namespace,
+			'/google-analytics/cache',
+			array(
+				'methods'             => WP_REST_Server::DELETABLE,
+				'callback'            => array( $this, 'clear_google_analytics_cache' ),
+				'permission_callback' => array( $this, 'can_manage_analytics' ),
+			)
+		);
+	}
 
-    /**
-     * Checks management permission.
-     *
-     * @return bool
-     */
-    public function can_manage_analytics() {
-        return current_user_can( 'analytic_suite_manage_analytics' );
-    }
+	/**
+	 * Checks read permission.
+	 *
+	 * @return bool
+	 */
+	public function can_read_analytics() {
+		return current_user_can( 'analytic_suite_view_analytics' );
+	}
 
-    /**
-     * Gets all dashboard data.
-     *
-     * @param WP_REST_Request $request REST request.
-     * @return WP_REST_Response
-     */
-    public function get_dashboard( $request ) {
-        $filters = $this->normalize_filters( $request );
-        $data    = $this->dashboard_service->get_dashboard_data( $filters );
+	/**
+	 * Checks management permission.
+	 *
+	 * @return bool
+	 */
+	public function can_manage_analytics() {
+		return current_user_can( 'analytic_suite_manage_analytics' );
+	}
 
-        return $this->respond(
-            array(
-                'filters' => $filters,
-                'data'    => $data,
-            )
-        );
-    }
+	// -------------------------------------------------------------------------
+	// Sync endpoints
+	// -------------------------------------------------------------------------
 
-    /**
-     * Gets summary metrics.
-     *
-     * @param WP_REST_Request $request REST request.
-     * @return WP_REST_Response
-     */
-    public function get_summary( $request ) {
-        $payload = $this->get_dashboard_payload( $request );
+	/**
+	 * Returns masterclass registration rows.
+	 * Maps to BigQuery table: masterclass_registrations.
+	 *
+	 * @param WP_REST_Request $request REST request.
+	 * @return WP_REST_Response
+	 */
+	public function sync_masterclass_registrations( $request ) {
+		$filters = $this->get_sync_filters( $request );
+		$repo    = new Analytic_Suite_Content_Repository();
+		$result  = $repo->get_masterclass_rows( $filters );
 
-        return $this->respond(
-            array(
-                'filters' => $payload['filters'],
-                'summary' => $payload['data']['summary'],
-            )
-        );
-    }
+		return $this->paginated_response( $result, $filters, 'wp_user_masterclass' );
+	}
 
-    /**
-     * Gets client-focused metrics.
-     *
-     * @param WP_REST_Request $request REST request.
-     * @return WP_REST_Response
-     */
-    public function get_clients( $request ) {
-        $payload = $this->get_dashboard_payload( $request );
-        $data    = $payload['data'];
+	/**
+	 * Returns expert session (booking) rows.
+	 * Maps to BigQuery table: expert_sessions.
+	 *
+	 * @param WP_REST_Request $request REST request.
+	 * @return WP_REST_Response
+	 */
+	public function sync_expert_sessions( $request ) {
+		$filters = $this->get_sync_filters( $request );
+		$repo    = new Analytic_Suite_Booking_Repository();
+		$result  = $repo->get_export_rows( $filters );
 
-        return $this->respond(
-            array(
-                'filters' => $payload['filters'],
-                'clients' => array(
-                    'unique_customers'          => $data['summary']['unique_customers'],
-                    'recurring_customers'       => $data['summary']['recurring_customers'],
-                    'repeat_product_customers'  => $data['summary']['repeat_product_customers'],
-                    'retention_rate'            => $data['orders']['retention_rate'],
-                    'order_gender_breakdown'    => $data['orders']['gender_breakdown'],
-                    'booking_gender_breakdown'  => $data['bookings']['gender_breakdown'],
-                    'booking_country_breakdown' => $data['bookings']['country_breakdown'],
-                    'order_customer_emails'     => $data['orders']['customer_emails'],
-                    'booking_customer_emails'   => $data['bookings']['customer_emails'],
-                ),
-            )
-        );
-    }
+		return $this->paginated_response( $result, $filters, 'fcal_bookings' );
+	}
 
-    /**
-     * Gets order metrics.
-     *
-     * @param WP_REST_Request $request REST request.
-     * @return WP_REST_Response
-     */
-    public function get_orders( $request ) {
-        return $this->respond_section( $request, 'orders' );
-    }
+	/**
+	 * Returns WooCommerce order rows.
+	 * Maps to BigQuery table: wc_orders.
+	 *
+	 * @param WP_REST_Request $request REST request.
+	 * @return WP_REST_Response
+	 */
+	public function sync_orders( $request ) {
+		$filters = $this->get_sync_filters( $request );
+		$repo    = new Analytic_Suite_Order_Repository();
+		$result  = $repo->get_export_rows( $filters );
 
-    /**
-     * Gets booking metrics.
-     *
-     * @param WP_REST_Request $request REST request.
-     * @return WP_REST_Response
-     */
-    public function get_bookings( $request ) {
-        return $this->respond_section( $request, 'bookings' );
-    }
+		return $this->paginated_response( $result, $filters, 'wc_orders' );
+	}
 
-    /**
-     * Gets content metrics.
-     *
-     * @param WP_REST_Request $request REST request.
-     * @return WP_REST_Response
-     */
-    public function get_contents( $request ) {
-        return $this->respond_section( $request, 'contents' );
-    }
+	/**
+	 * Returns WordPress user rows.
+	 * Maps to BigQuery table: wp_users.
+	 *
+	 * @param WP_REST_Request $request REST request.
+	 * @return WP_REST_Response
+	 */
+	public function sync_users( $request ) {
+		$filters = $this->get_sync_filters( $request );
+		$repo    = new Analytic_Suite_User_Repository();
+		$result  = $repo->get_export_rows( $filters );
 
-    /**
-     * Gets GA4 metrics.
-     *
-     * @param WP_REST_Request $request REST request.
-     * @return WP_REST_Response
-     */
-    public function get_google_analytics( $request ) {
-        return $this->respond_section( $request, 'ga' );
-    }
+		return $this->paginated_response( $result, $filters, 'wp_users' );
+	}
 
-    /**
-     * Gets report-ready dashboard data.
-     *
-     * @param WP_REST_Request $request REST request.
-     * @return WP_REST_Response
-     */
-    public function get_reports( $request ) {
-        $payload = $this->get_dashboard_payload( $request );
+	// -------------------------------------------------------------------------
+	// Utility endpoints
+	// -------------------------------------------------------------------------
 
-        return $this->respond(
-            array(
-                'filters'     => $payload['filters'],
-                'data'        => $payload['data'],
-                'export_rows' => $this->dashboard_service->get_export_rows( $payload['filters'] ),
-            )
-        );
-    }
+	/**
+	 * Returns integration status — used by n8n as health check.
+	 *
+	 * @return WP_REST_Response
+	 */
+	public function get_status() {
+		global $wpdb;
 
-    /**
-     * Gets export rows as JSON.
-     *
-     * @param WP_REST_Request $request REST request.
-     * @return WP_REST_Response
-     */
-    public function get_export_rows( $request ) {
-        $filters = $this->normalize_filters( $request );
+		$ga         = new Analytic_Suite_Google_Analytics();
+		$wc_active  = function_exists( 'wc_get_orders' );
 
-        return $this->respond(
-            array(
-                'filters' => $filters,
-                'rows'    => $this->dashboard_service->get_export_rows( $filters ),
-            )
-        );
-    }
+		$fb_table      = $this->find_first_existing_table( array(
+			'fcal_bookings',
+			'fluent_booking_appointments',
+			'fluentcalendar_bookings',
+			'fluent_bookings',
+			'fcal_appointments',
+		) );
 
-    /**
-     * Gets integration and sync status.
-     *
-     * @param WP_REST_Request $request REST request.
-     * @return WP_REST_Response
-     */
-    public function get_status( $request ) {
-        $payload = $this->get_dashboard_payload( $request );
-        $data    = $payload['data'];
+		$mc_exists  = $this->table_exists( 'user_masterclass' );
+		$lb_exists  = $this->table_exists( 'user_livres' );
 
-        return $this->respond(
-            array(
-                'filters' => $payload['filters'],
-                'status'  => array(
-                    'woocommerce'       => array( 'available' => (bool) $data['orders']['available'] ),
-                    'fluentbooking'     => array(
-                        'available' => (bool) $data['bookings']['available'],
-                        'table'     => $data['bookings']['table'],
-                    ),
-                    'contents'          => array(
-                        'available'         => (bool) $data['contents']['available'],
-                        'masterclass_table' => (bool) $data['contents']['masterclass_table'],
-                        'books_table'       => (bool) $data['contents']['books_table'],
-                    ),
-                    'google_analytics'  => $data['ga_status'],
-                    'last_sync'         => get_option( 'analytic_suite_last_sync', __( 'Jamais', 'analytic-suite' ) ),
-                    'plugin_version'    => ANALYTIC_SUITE_VERSION,
-                ),
-            )
-        );
-    }
+		return rest_ensure_response( array(
+			'plugin_version' => ANALYTIC_SUITE_VERSION,
+			'generated_at'   => gmdate( 'c' ),
+			'last_sync'      => get_option( 'analytic_suite_last_sync', null ),
+			'integrations'   => array(
+				'woocommerce'      => array( 'available' => $wc_active ),
+				'fluentbooking'    => array( 'available' => '' !== $fb_table, 'table' => $fb_table ?: null ),
+				'user_masterclass' => array( 'available' => $mc_exists ),
+				'user_livres'      => array( 'available' => $lb_exists ),
+				'google_analytics' => $ga->get_status(),
+			),
+			'sync_endpoints' => array(
+				$this->namespace . '/sync/masterclass-registrations',
+				$this->namespace . '/sync/expert-sessions',
+				$this->namespace . '/sync/orders',
+				$this->namespace . '/sync/users',
+			),
+		) );
+	}
 
-    /**
-     * Gets available filter options.
-     *
-     * @param WP_REST_Request $request REST request.
-     * @return WP_REST_Response
-     */
-    public function get_filter_options_response( $request ) {
-        return $this->respond(
-            array(
-                'filters' => $this->normalize_filters( $request ),
-                'options' => $this->dashboard_service->get_filter_options(),
-            )
-        );
-    }
+	/**
+	 * Clears GA4 response cache.
+	 *
+	 * @return WP_REST_Response
+	 */
+	public function clear_google_analytics_cache() {
+		$this->dashboard_service->clear_ga_cache();
 
-    /**
-     * Gets public analytics data used by the shortcode.
-     *
-     * @param WP_REST_Request $request REST request.
-     * @return WP_REST_Response
-     */
-    public function get_public( $request ) {
-        $contents = new Analytic_Suite_Content_Repository();
-        $ga       = new Analytic_Suite_Google_Analytics();
-        $page     = $this->get_public_ga_page();
-        $filters  = $this->normalize_filters( $request );
+		return rest_ensure_response( array(
+			'success' => true,
+			'message' => __( 'Cache Google Analytics vidé.', 'analytic-suite' ),
+		) );
+	}
 
-        if ( ! empty( $page['path'] ) ) {
-            $filters['page_path'] = $page['path'];
-        }
+	// -------------------------------------------------------------------------
+	// Internal helpers
+	// -------------------------------------------------------------------------
 
-        return $this->respond(
-            array(
-                'filters'      => $filters,
-                'public_page'  => $page,
-                'demographics' => $contents->get_public_demographics(),
-                'ga'           => array(
-                    'configured'   => $ga->is_configured(),
-                    'summary'      => $ga->is_configured() && ! empty( $page['path'] ) ? $ga->get_summary( $filters ) : array(),
-                    'pages'        => $ga->is_configured() && ! empty( $page['path'] ) ? $ga->get_page_views( $filters ) : array(),
-                    'demographics' => $ga->is_configured() && ! empty( $page['path'] ) ? $ga->get_demographics( $filters ) : array(),
-                    'status'       => $ga->get_status(),
-                ),
-            )
-        );
-    }
+	/**
+	 * Extracts and sanitizes sync filter params from the request.
+	 *
+	 * @param WP_REST_Request $request REST request.
+	 * @return array { updated_after: string, per_page: int, page: int }
+	 */
+	private function get_sync_filters( WP_REST_Request $request ) {
+		$per_page = min( 500, max( 1, (int) ( $request->get_param( 'per_page' ) ?: 200 ) ) );
+		$page     = max( 1, (int) ( $request->get_param( 'page' ) ?: 1 ) );
 
-    /**
-     * Clears GA4 cache.
-     *
-     * @return WP_REST_Response
-     */
-    public function clear_google_analytics_cache() {
-        $this->dashboard_service->clear_ga_cache();
+		$updated_after = '';
+		$raw           = $request->get_param( 'updated_after' );
 
-        return $this->respond(
-            array(
-                'success' => true,
-                'message' => __( 'Cache Google Analytics vidé.', 'analytic-suite' ),
-            )
-        );
-    }
+		if ( $raw ) {
+			$ts = strtotime( sanitize_text_field( $raw ) );
+			if ( $ts ) {
+				$updated_after = gmdate( 'Y-m-d H:i:s', $ts );
+			}
+		}
 
-    /**
-     * Responds with a dashboard section.
-     *
-     * @param WP_REST_Request $request REST request.
-     * @param string          $section Section key.
-     * @return WP_REST_Response
-     */
-    private function respond_section( $request, $section ) {
-        $payload = $this->get_dashboard_payload( $request );
+		return array(
+			'updated_after' => $updated_after,
+			'per_page'      => $per_page,
+			'page'          => $page,
+		);
+	}
 
-        return $this->respond(
-            array(
-                'filters' => $payload['filters'],
-                $section  => $payload['data'][ $section ],
-            )
-        );
-    }
+	/**
+	 * Wraps a repository result in a paginated response envelope.
+	 *
+	 * @param array  $result  { total: int, rows: array }
+	 * @param array  $filters Sync filters.
+	 * @param string $source  Source table identifier.
+	 * @return WP_REST_Response
+	 */
+	private function paginated_response( $result, $filters, $source ) {
+		$total       = (int) $result['total'];
+		$per_page    = (int) $filters['per_page'];
+		$total_pages = $per_page > 0 ? (int) ceil( $total / $per_page ) : 1;
 
-    /**
-     * Gets dashboard data with normalized filters.
-     *
-     * @param WP_REST_Request $request REST request.
-     * @return array
-     */
-    private function get_dashboard_payload( $request ) {
-        $filters = $this->normalize_filters( $request );
+		return rest_ensure_response( array(
+			'meta' => array(
+				'total'        => $total,
+				'page'         => (int) $filters['page'],
+				'per_page'     => $per_page,
+				'total_pages'  => $total_pages,
+				'generated_at' => gmdate( 'c' ),
+				'source'       => $source,
+			),
+			'rows' => $result['rows'],
+		) );
+	}
 
-        return array(
-            'filters' => $filters,
-            'data'    => $this->dashboard_service->get_dashboard_data( $filters ),
-        );
-    }
+	/**
+	 * Returns REST arg definitions for sync endpoints.
+	 *
+	 * @return array
+	 */
+	private function get_sync_args() {
+		return array(
+			'updated_after' => array(
+				'description'       => __( 'ISO 8601 datetime. Retourne uniquement les enregistrements créés/modifiés après cette date (ex: 2026-06-01T00:00:00Z).', 'analytic-suite' ),
+				'type'              => 'string',
+				'sanitize_callback' => 'sanitize_text_field',
+			),
+			'per_page'      => array(
+				'description'       => __( 'Nombre de lignes par page. Max 500, défaut 200.', 'analytic-suite' ),
+				'type'              => 'integer',
+				'sanitize_callback' => 'absint',
+				'default'           => 200,
+			),
+			'page'          => array(
+				'description'       => __( 'Numéro de page (base 1).', 'analytic-suite' ),
+				'type'              => 'integer',
+				'sanitize_callback' => 'absint',
+				'default'           => 1,
+			),
+		);
+	}
 
-    /**
-     * Gets selected public GA page details.
-     *
-     * @return array
-     */
-    private function get_public_ga_page() {
-        $page_id = absint( get_option( 'analytic_suite_public_ga_page_id', 0 ) );
+	/**
+	 * Checks if a table with the given slug (without prefix) exists.
+	 *
+	 * @param string $slug Table slug.
+	 * @return bool
+	 */
+	private function table_exists( $slug ) {
+		global $wpdb;
+		$table = $wpdb->prefix . $slug;
+		return $table === $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table ) );
+	}
 
-        if ( ! $page_id ) {
-            return array(
-                'id'    => 0,
-                'title' => '',
-                'path'  => '',
-            );
-        }
-
-        $permalink = get_permalink( $page_id );
-        $path      = $permalink ? wp_parse_url( $permalink, PHP_URL_PATH ) : '';
-
-        return array(
-            'id'    => $page_id,
-            'title' => get_the_title( $page_id ),
-            'path'  => $path ? $path : '/',
-        );
-    }
-
-    /**
-     * Normalizes request filters through the dashboard service.
-     *
-     * @param WP_REST_Request $request REST request.
-     * @return array
-     */
-    private function normalize_filters( $request ) {
-        return $this->dashboard_service->get_filters_from_request( $request->get_params() );
-    }
-
-    /**
-     * Builds route filter arguments.
-     *
-     * @return array
-     */
-    private function get_filter_args() {
-        return array(
-            'period' => array(
-                'description'       => __( 'Période: all, 7-days, 30-days, year ou custom.', 'analytic-suite' ),
-                'type'              => 'string',
-                'sanitize_callback' => 'sanitize_key',
-            ),
-            'date_from' => array(
-                'description'       => __( 'Date de début au format YYYY-MM-DD.', 'analytic-suite' ),
-                'type'              => 'string',
-                'sanitize_callback' => 'sanitize_text_field',
-            ),
-            'date_to' => array(
-                'description'       => __( 'Date de fin au format YYYY-MM-DD.', 'analytic-suite' ),
-                'type'              => 'string',
-                'sanitize_callback' => 'sanitize_text_field',
-            ),
-            'country' => array(
-                'type'              => 'string',
-                'sanitize_callback' => 'sanitize_text_field',
-            ),
-            'status' => array(
-                'type'              => 'string',
-                'sanitize_callback' => 'sanitize_text_field',
-            ),
-            'booking_type' => array(
-                'type'              => 'string',
-                'sanitize_callback' => 'sanitize_text_field',
-            ),
-            'exclude_booking_type' => array(
-                'type'              => 'string',
-                'sanitize_callback' => 'sanitize_text_field',
-            ),
-            'duration' => array(
-                'type'              => 'integer',
-                'sanitize_callback' => 'absint',
-            ),
-            'product' => array(
-                'type'              => 'integer',
-                'sanitize_callback' => 'absint',
-            ),
-            'gender' => array(
-                'type'              => 'string',
-                'sanitize_callback' => 'sanitize_text_field',
-            ),
-            'customer' => array(
-                'type'              => 'string',
-                'sanitize_callback' => 'sanitize_text_field',
-            ),
-            'page_path' => array(
-                'description'       => __( 'Chemin de page pour filtrer Google Analytics.', 'analytic-suite' ),
-                'type'              => 'string',
-                'sanitize_callback' => 'sanitize_text_field',
-            ),
-        );
-    }
-
-    /**
-     * Wraps data in a REST response.
-     *
-     * @param array $payload Response payload.
-     * @return WP_REST_Response
-     */
-    private function respond( $payload ) {
-        return rest_ensure_response( $payload );
-    }
+	/**
+	 * Returns the first existing table from a list of slugs (without prefix).
+	 *
+	 * @param string[] $slugs Table slugs.
+	 * @return string Full table name, or empty string.
+	 */
+	private function find_first_existing_table( $slugs ) {
+		global $wpdb;
+		foreach ( $slugs as $slug ) {
+			$table = $wpdb->prefix . $slug;
+			if ( $table === $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table ) ) ) {
+				return $table;
+			}
+		}
+		return '';
+	}
 }

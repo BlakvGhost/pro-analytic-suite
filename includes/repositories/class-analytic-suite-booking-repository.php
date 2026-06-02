@@ -22,6 +22,131 @@ class Analytic_Suite_Booking_Repository {
     private $event_labels = array();
 
     /**
+     * Returns paginated flat booking rows for BigQuery export.
+     *
+     * @param array $filters { updated_after: string, per_page: int, page: int }
+     * @return array { total: int, rows: array }
+     */
+    public function get_export_rows( $filters ) {
+        global $wpdb;
+
+        $table   = $this->find_booking_table();
+        $columns = $table ? $this->get_columns( $table ) : array();
+
+        if ( ! $table ) {
+            return array( 'total' => 0, 'rows' => array() );
+        }
+
+        $per_page = min( 500, max( 1, (int) ( $filters['per_page'] ?? 200 ) ) );
+        $page     = max( 1, (int) ( $filters['page'] ?? 1 ) );
+        $offset   = ( $page - 1 ) * $per_page;
+
+        $where  = array( '1=1' );
+        $values = array();
+
+        $time_col = $this->first_existing_column( $columns, array( 'updated_at', 'modified_at', 'created_at' ) );
+        if ( $time_col && ! empty( $filters['updated_after'] ) ) {
+            $where[]  = '`' . esc_sql( $time_col ) . '` > %s';
+            $values[] = $filters['updated_after'];
+        }
+
+        $order_col = $this->first_existing_column( $columns, array( 'id', 'created_at', 'start_at' ) );
+        $order_sql = $order_col ? ' ORDER BY `' . esc_sql( $order_col ) . '` ASC' : '';
+        $where_sql = implode( ' AND ', $where );
+
+        if ( ! empty( $values ) ) {
+            $total    = (int) $wpdb->get_var( $wpdb->prepare( 'SELECT COUNT(*) FROM `' . esc_sql( $table ) . '` WHERE ' . $where_sql, $values ) );
+            $raw_rows = $wpdb->get_results(
+                $wpdb->prepare( 'SELECT * FROM `' . esc_sql( $table ) . '` WHERE ' . $where_sql . $order_sql . ' LIMIT %d OFFSET %d', array_merge( $values, array( $per_page, $offset ) ) ),
+                ARRAY_A
+            );
+        } else {
+            $total    = (int) $wpdb->get_var( 'SELECT COUNT(*) FROM `' . esc_sql( $table ) . '` WHERE ' . $where_sql );
+            $raw_rows = $wpdb->get_results(
+                $wpdb->prepare( 'SELECT * FROM `' . esc_sql( $table ) . '` WHERE ' . $where_sql . $order_sql . ' LIMIT %d OFFSET %d', array( $per_page, $offset ) ),
+                ARRAY_A
+            );
+        }
+
+        $rows = array();
+
+        foreach ( (array) $raw_rows as $raw ) {
+            $booking_id    = absint( $this->value_from_columns( $raw, array( 'id', 'booking_id' ) ) );
+            $type          = $this->value_from_columns( $raw, array( 'event_type', 'booking_type', 'calendar_event_id', 'event_id' ) );
+            $status        = $this->value_from_columns( $raw, array( 'status', 'booking_status', 'event_status' ) );
+            $duration      = (int) $this->value_from_columns( $raw, array( 'slot_minutes', 'duration', 'duration_minutes', 'meeting_duration' ) );
+            $email         = strtolower( (string) $this->value_from_columns( $raw, array( 'email', 'invitee_email', 'customer_email' ) ) );
+            $country       = $this->value_from_columns( $raw, array( 'country', 'invitee_country', 'customer_country' ) );
+            $source_id     = absint( $this->value_from_columns( $raw, array( 'source_id', 'order_id' ) ) );
+            $gender        = '';
+            $order_id      = 0;
+            $service_label = '';
+
+            if ( ! $duration ) {
+                $duration = $this->get_duration_from_row( $raw );
+            }
+
+            if ( function_exists( 'wc_get_order' ) ) {
+                $order = $source_id ? wc_get_order( $source_id ) : $this->get_order_by_booking_id( $booking_id );
+
+                if ( $order instanceof WC_Order ) {
+                    $order_id = $order->get_id();
+                    if ( '' === $email ) {
+                        $email = strtolower( (string) $order->get_billing_email() );
+                    }
+                    if ( '' === $country ) {
+                        $country = $order->get_billing_country();
+                    }
+                    $gender        = $this->normalize_gender( $order->get_meta( 'gender_' ) );
+                    $service_label = $this->get_order_service_label( $order );
+                    if ( '' === $status ) {
+                        $status = $order->get_status();
+                    }
+                }
+            }
+
+            if ( '' === $service_label ) {
+                $service_label = $this->get_event_label( $type );
+            }
+            if ( '' === $service_label ) {
+                $service_label = (string) $type;
+            }
+
+            $start_raw   = $this->value_from_columns( $raw, array( 'start_at', 'start_time', 'start_datetime', 'start_date', 'start', 'booking_date' ) );
+            $created_raw = $this->value_from_columns( $raw, array( 'created_at', 'start_at' ) );
+            $updated_raw = $this->value_from_columns( $raw, array( 'updated_at', 'modified_at', 'created_at' ) );
+
+            $rows[] = array(
+                'booking_id'      => $booking_id ?: null,
+                'order_id'        => $order_id ?: null,
+                'user_email'      => $email ?: null,
+                'service_label'   => $service_label ?: null,
+                'category'        => $this->classify_booking_type( $service_label ),
+                'status'          => $status ?: null,
+                'duration_minutes' => $duration ?: null,
+                'scheduled_at'    => $start_raw ? $this->format_datetime_iso( $start_raw ) : null,
+                'country'         => $country ?: null,
+                'gender'          => $gender ?: null,
+                'created_at'      => $created_raw ? $this->format_datetime_iso( $created_raw ) : null,
+                'updated_at'      => $updated_raw ? $this->format_datetime_iso( $updated_raw ) : null,
+            );
+        }
+
+        return array( 'total' => $total, 'rows' => $rows );
+    }
+
+    /**
+     * Formats a FluentBooking date value to ISO 8601.
+     *
+     * @param mixed $value Raw date value.
+     * @return string|null
+     */
+    private function format_datetime_iso( $value ) {
+        $ts = $this->date_to_timestamp( $value );
+        return $ts ? gmdate( 'c', $ts ) : null;
+    }
+
+    /**
      * Gets booking metrics.
      *
      * @param array $filters Filters.

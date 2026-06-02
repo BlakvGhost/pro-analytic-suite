@@ -1,1180 +1,294 @@
 <?php
 /**
- * Admin pages.
+ * Admin settings page.
  *
  * @package Analytic_Suite
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
-    exit;
+	exit;
 }
 
 /**
- * Renders WordPress admin analytics screens.
+ * Renders the Settings admin page (the only remaining UI page).
  */
 class Analytic_Suite_Admin {
 
-    /**
-     * Dashboard service.
-     *
-     * @var Analytic_Suite_Dashboard_Service
-     */
-    private $dashboard_service;
-
-    /**
-     * Constructor.
-     *
-     * @param Analytic_Suite_Dashboard_Service $dashboard_service Dashboard service.
-     */
-    public function __construct( Analytic_Suite_Dashboard_Service $dashboard_service ) {
-        $this->dashboard_service = $dashboard_service;
-    }
-
-    /**
-     * Registers menu and submenus.
-     */
-    public function register_menu() {
-        add_menu_page(
-            __( 'Pro Analytics', 'analytic-suite' ),
-            __( 'Pro Analytics', 'analytic-suite' ),
-            'analytic_suite_view_analytics',
-            'analytic-suite',
-            array( $this, 'render_dashboard_page' ),
-            'dashicons-chart-area',
-            56
-        );
-
-        $pages = array(
-            'analytic-suite-clients'  => __( 'Clients', 'analytic-suite' ),
-            'analytic-suite-bookings' => __( 'Réservations', 'analytic-suite' ),
-            'analytic-suite-orders'   => __( 'Commandes', 'analytic-suite' ),
-            'analytic-suite-contents' => __( 'Contenus', 'analytic-suite' ),
-            'analytic-suite-google-analytics' => __( 'Google Analytics', 'analytic-suite' ),
-            'analytic-suite-reports'  => __( 'Rapports', 'analytic-suite' ),
-            'analytic-suite-exports'  => __( 'Exports', 'analytic-suite' ),
-            'analytic-suite-settings' => __( 'Paramètres', 'analytic-suite' ),
-        );
-
-        foreach ( $pages as $slug => $title ) {
-            add_submenu_page(
-                'analytic-suite',
-                $title,
-                $title,
-                'analytic_suite_view_analytics',
-                $slug,
-                array( $this, 'render_submenu_page' )
-            );
-        }
-    }
-
-    /**
-     * Renders the dashboard page.
-     */
-    public function render_dashboard_page() {
-        $this->render_page( 'dashboard' );
-    }
-
-    /**
-     * Renders any submenu page.
-     */
-    public function render_submenu_page() {
-        $page = isset( $_GET['page'] ) ? sanitize_key( wp_unslash( $_GET['page'] ) ) : 'analytic-suite';
-        $view = str_replace( 'analytic-suite-', '', $page );
-
-        if ( 'analytic-suite' === $page ) {
-            $view = 'dashboard';
-        }
-
-        $this->render_page( $view );
-    }
-
-    /**
-     * Renders a plugin page.
-     *
-     * @param string $view View identifier.
-     */
-    private function render_page( $view ) {
-        if ( ! current_user_can( 'analytic_suite_view_analytics' ) ) {
-            wp_die( esc_html__( 'Accès refusé.', 'analytic-suite' ) );
-        }
-
-        $filters       = $this->dashboard_service->get_filters_from_request( $_GET );
-        $data          = $this->dashboard_service->get_dashboard_data( $filters );
-        $filter_options = $this->dashboard_service->get_filter_options();
-        $titles        = $this->get_page_titles();
-        $title         = isset( $titles[ $view ] ) ? $titles[ $view ] : $titles['dashboard'];
-
-        echo '<div class="wrap analytic-suite">';
-        $this->render_page_header( $view, $title );
-        $this->render_tabs( $view );
-
-        echo '<div class="analytic-suite-notices">';
-        $this->render_notices( $data );
-        echo '</div>';
-
-        $this->render_filters( $filters, $filter_options, $view );
-
-        if ( 'dashboard' === $view ) {
-            $this->render_dashboard( $data );
-        } elseif ( 'clients' === $view ) {
-            $this->render_clients( $data );
-        } elseif ( 'bookings' === $view ) {
-            $this->render_bookings( $data );
-        } elseif ( 'orders' === $view ) {
-            $this->render_orders( $data );
-        } elseif ( 'contents' === $view ) {
-            $this->render_contents( $data );
-        } elseif ( 'google-analytics' === $view ) {
-            $this->render_google_analytics( $data );
-        } elseif ( 'exports' === $view ) {
-            $this->render_exports( $filters );
-        } elseif ( 'settings' === $view ) {
-            $this->render_settings( $data );
-        } else {
-            $this->render_reports( $data );
-        }
-
-        echo '</div>';
-    }
-
-    /**
-     * Gets page titles.
-     *
-     * @return array
-     */
-    private function get_page_titles() {
-        return array(
-            'dashboard' => __( 'Dashboard Analytics', 'analytic-suite' ),
-            'clients'   => __( 'Analytics Clients', 'analytic-suite' ),
-            'bookings'  => __( 'Analytics Réservations', 'analytic-suite' ),
-            'orders'    => __( 'Analytics Commandes', 'analytic-suite' ),
-            'contents'  => __( 'Analytics Contenus', 'analytic-suite' ),
-            'google-analytics' => __( 'Google Analytics', 'analytic-suite' ),
-            'reports'   => __( 'Rapports Analytics', 'analytic-suite' ),
-            'exports'   => __( 'Exports Analytics', 'analytic-suite' ),
-            'settings'  => __( 'Paramètres Analytics', 'analytic-suite' ),
-        );
-    }
-
-    /**
-     * Gets page descriptions.
-     *
-     * @return array
-     */
-    private function get_page_descriptions() {
-        return array(
-            'dashboard' => __( 'Vue synthétique des ventes, réservations, contenus et indicateurs clés.', 'analytic-suite' ),
-            'clients'   => __( 'Analyse des clients, de la fidélisation et des profils les plus actifs.', 'analytic-suite' ),
-            'bookings'  => __( 'Suivi des réservations, annulations, types de rendez-vous et durées.', 'analytic-suite' ),
-            'orders'    => __( 'Lecture des commandes WooCommerce, produits vendus et chiffre d’affaires.', 'analytic-suite' ),
-            'contents'  => __( 'Performance des masterclass, livres blancs et contenus suivis.', 'analytic-suite' ),
-            'google-analytics' => __( 'Trafic GA4, acquisition, appareils et pages les plus consultées.', 'analytic-suite' ),
-            'reports'   => __( 'Rapport de synthèse prêt pour la consultation et l’export.', 'analytic-suite' ),
-            'exports'   => __( 'Téléchargement des données filtrées en CSV, Excel ou PDF.', 'analytic-suite' ),
-            'settings'  => __( 'Configuration des intégrations, du shortcode public et de l’apparence.', 'analytic-suite' ),
-        );
-    }
-
-    /**
-     * Renders page header.
-     *
-     * @param string $view  Current view.
-     * @param string $title Page title.
-     */
-    private function render_page_header( $view, $title ) {
-        $descriptions = $this->get_page_descriptions();
-        $description  = $descriptions[ $view ] ?? $descriptions['dashboard'];
-        $badge        = get_option( 'analytic_suite_header_badge', __( 'Pro Analytics', 'analytic-suite' ) );
-
-        echo '<header class="analytic-suite-header">';
-        echo '<div>';
-        echo '<h1>' . esc_html( $title ) . '</h1>';
-        echo '<p>' . esc_html( $description ) . '</p>';
-        echo '</div>';
-        echo '<div class="analytic-suite-header-meta">';
-        echo '<span>' . esc_html( $badge ) . '</span>';
-        echo '<strong>' . esc_html( sprintf( __( 'Version %s', 'analytic-suite' ), ANALYTIC_SUITE_VERSION ) ) . '</strong>';
-        echo '</div>';
-        echo '</header>';
-    }
-
-    /**
-     * Renders top navigation tabs.
-     *
-     * @param string $current_view Current view.
-     */
-    private function render_tabs( $current_view ) {
-        $tabs = array(
-            'dashboard' => __( 'Dashboard', 'analytic-suite' ),
-            'clients'   => __( 'Clients', 'analytic-suite' ),
-            'bookings'  => __( 'Réservations', 'analytic-suite' ),
-            'orders'    => __( 'Commandes', 'analytic-suite' ),
-            'contents'  => __( 'Contenus', 'analytic-suite' ),
-            'google-analytics' => __( 'Google Analytics', 'analytic-suite' ),
-            'reports'   => __( 'Rapports', 'analytic-suite' ),
-            'exports'   => __( 'Exports', 'analytic-suite' ),
-            'settings'  => __( 'Paramètres', 'analytic-suite' ),
-        );
-
-        echo '<nav class="analytic-suite-tabs" aria-label="' . esc_attr__( 'Navigation Analytics', 'analytic-suite' ) . '">';
-
-        foreach ( $tabs as $view => $label ) {
-            $page = 'dashboard' === $view ? 'analytic-suite' : 'analytic-suite-' . $view;
-            $url  = admin_url( 'admin.php?page=' . $page );
-            $class = $current_view === $view ? ' class="is-active"' : '';
-
-            echo '<a href="' . esc_url( $url ) . '"' . $class . '>' . esc_html( $label ) . '</a>';
-        }
-
-        echo '</nav>';
-    }
-
-    /**
-     * Renders plugin availability notices.
-     *
-     * @param array $data Dashboard data.
-     */
-    private function render_notices( $data ) {
-        $ga_status = $data['ga']['status'] ?? ( $data['ga_status'] ?? array() );
-
-        if ( empty( $data['orders']['available'] ) ) {
-            $this->render_alert( 'warning', __( 'WooCommerce n’est pas détecté. Les métriques de commandes resteront à zéro.', 'analytic-suite' ) );
-        }
-
-        if ( empty( $data['bookings']['available'] ) ) {
-            $this->render_alert( 'warning', __( 'Les tables FluentBooking ne sont pas détectées. Les métriques de réservations resteront à zéro.', 'analytic-suite' ) );
-        }
-
-        if ( empty( $data['contents']['available'] ) ) {
-            $this->render_alert( 'info', __( 'Les tables ou post types de contenus ne sont pas détectés. Les métriques Masterclass/Livres resteront à zéro.', 'analytic-suite' ) );
-        }
-
-        if ( empty( $ga_status['configured'] ) ) {
-            $this->render_alert( 'info', __( 'Google Analytics 4 n’est pas configuré. Ajoutez le Property ID et la clé JSON dans Paramètres pour afficher les données GA.', 'analytic-suite' ) );
-        } elseif ( ! empty( $ga_status['last_error'] ) ) {
-            $this->render_alert( 'error', sprintf( __( 'Google Analytics 4 ne répond pas : %s', 'analytic-suite' ), $ga_status['last_error'] ) );
-        }
-    }
-
-    /**
-     * Renders a plugin-scoped alert.
-     *
-     * @param string $type    Alert type.
-     * @param string $message Message.
-     */
-    private function render_alert( $type, $message ) {
-        echo '<div class="analytic-suite-alert analytic-suite-alert-' . esc_attr( $type ) . '"><p>' . esc_html( $message ) . '</p></div>';
-    }
-
-    /**
-     * Renders filters.
-     *
-     * @param array  $filters       Filters.
-     * @param array  $filter_options Available filter options.
-     * @param string $view          Current view.
-     */
-    private function render_filters( $filters, $filter_options, $view ) {
-        $page = 'dashboard' === $view ? 'analytic-suite' : 'analytic-suite-' . $view;
-
-        echo '<form method="get" class="analytic-suite-filters">';
-        echo '<input type="hidden" name="page" value="' . esc_attr( $page ) . '">';
-
-        $this->render_select(
-            'period',
-            __( 'Période', 'analytic-suite' ),
-            $filters['period'],
-            array(
-                'all'     => __( 'Toutes les données', 'analytic-suite' ),
-                '7-days'  => __( '7 jours', 'analytic-suite' ),
-                '30-days' => __( '30 jours', 'analytic-suite' ),
-                'year'    => __( 'Année en cours', 'analytic-suite' ),
-                'custom'  => __( 'Personnalisée', 'analytic-suite' ),
-            )
-        );
-
-        $this->render_input( 'date_from', __( 'Du', 'analytic-suite' ), $filters['date_from'], 'date' );
-        $this->render_input( 'date_to', __( 'Au', 'analytic-suite' ), $filters['date_to'], 'date' );
-
-        $this->render_select(
-            'country',
-            __( 'Pays', 'analytic-suite' ),
-            $filters['country'],
-            $this->build_options_array( $filter_options['countries'], true )
-        );
-
-        $this->render_select(
-            'status',
-            __( 'Statut', 'analytic-suite' ),
-            $filters['status'],
-            $this->build_options_array( $filter_options['statuses'], true )
-        );
-
-        $this->render_select(
-            'booking_type',
-            __( 'Type réservation', 'analytic-suite' ),
-            $filters['booking_type'],
-            $this->build_options_array( $filter_options['booking_types'], true )
-        );
-
-        $this->render_select(
-            'exclude_booking_type',
-            __( 'Exclure type', 'analytic-suite' ),
-            $filters['exclude_booking_type'],
-            $this->build_options_array( $filter_options['exclude_booking_types'], true )
-        );
-
-        $this->render_select(
-            'duration',
-            __( 'Durée', 'analytic-suite' ),
-            $filters['duration'] ? (string) $filters['duration'] : '',
-            $this->build_options_array( $filter_options['durations'], true )
-        );
-
-        $this->render_select(
-            'product',
-            __( 'Produit', 'analytic-suite' ),
-            $filters['product'] ? (string) $filters['product'] : '',
-            $this->build_options_array( $filter_options['products'], true, true )
-        );
-
-        $this->render_select(
-            'gender',
-            __( 'Civilité', 'analytic-suite' ),
-            $filters['gender'],
-            $this->build_options_array( $filter_options['genders'], true )
-        );
-
-        $this->render_select(
-            'customer',
-            __( 'Client', 'analytic-suite' ),
-            $filters['customer'],
-            $this->build_options_array( $filter_options['customers'] ?? array(), true )
-        );
-
-        submit_button( __( 'Filtrer', 'analytic-suite' ), 'primary', '', false );
-        echo '</form>';
-    }
-
-    /**
-     * Builds an options array for select fields.
-     *
-     * @param array  $items      Items.
-     * @param bool   $add_empty  Add empty option.
-     * @param bool   $use_keys   Use items as keys.
-     * @return array
-     */
-    private function build_options_array( $items, $add_empty = false, $use_keys = false ) {
-        $options = array();
-
-        if ( $add_empty ) {
-            $options[''] = __( 'Tous', 'analytic-suite' );
-        }
-
-        if ( empty( $items ) ) {
-            return $options;
-        }
-
-        foreach ( $items as $key => $value ) {
-            if ( $use_keys ) {
-                $options[ $key ] = $value;
-            } else {
-                $options[ $value ] = $value;
-            }
-        }
-
-        return $options;
-    }
-
-    /**
-     * Renders a select field.
-     *
-     * @param string $name    Field name.
-     * @param string $label   Field label.
-     * @param string $current Current value.
-     * @param array  $options Options.
-     */
-    private function render_select( $name, $label, $current, $options ) {
-        echo '<label><span>' . esc_html( $label ) . '</span>';
-        echo '<select name="' . esc_attr( $name ) . '">';
-        foreach ( $options as $value => $text ) {
-            echo '<option value="' . esc_attr( $value ) . '" ' . selected( $current, $value, false ) . '>' . esc_html( $text ) . '</option>';
-        }
-        echo '</select></label>';
-    }
-
-    /**
-     * Renders an input field.
-     *
-     * @param string $name  Field name.
-     * @param string $label Field label.
-     * @param mixed  $value Field value.
-     * @param string $type  Input type.
-     */
-    private function render_input( $name, $label, $value, $type ) {
-        echo '<label><span>' . esc_html( $label ) . '</span>';
-        echo '<input type="' . esc_attr( $type ) . '" name="' . esc_attr( $name ) . '" value="' . esc_attr( $value ) . '">';
-        echo '</label>';
-    }
-
-    /**
-     * Renders dashboard cards and tables.
-     *
-     * @param array $data Dashboard data.
-     */
-    private function render_dashboard( $data ) {
-        $summary = $data['summary'];
-        $top_booking_country = $this->get_top_breakdown_label( $data['bookings']['country_breakdown'] );
-        $top_booking_gender  = $this->get_top_breakdown_label( $data['bookings']['gender_breakdown'] );
-
-        $this->render_section_title( __( 'Vue d’ensemble', 'analytic-suite' ), __( 'Les indicateurs qui résument l’activité sur la période filtrée.', 'analytic-suite' ) );
-        echo '<div class="analytic-suite-cards">';
-        $this->render_card( __( 'Nb clients uniques', 'analytic-suite' ), $summary['unique_customers'] );
-        $this->render_card( __( 'Commandes', 'analytic-suite' ), $summary['orders'] );
-        $this->render_card( __( 'Réservations', 'analytic-suite' ), $summary['bookings'] );
-        $this->render_card( __( 'Chiffre d’affaires', 'analytic-suite' ), $this->format_price( $summary['revenue'] ) );
-        $this->render_card( __( 'Panier moyen', 'analytic-suite' ), $this->format_price( $summary['average_order_value'] ) );
-        $this->render_card( __( 'Clients produits répétés', 'analytic-suite' ), $summary['repeat_product_customers'] );
-        echo '</div>';
-
-        $this->render_section_title( __( 'Activité globale', 'analytic-suite' ), __( 'Comparaison rapide entre achats, réservations et contenus consultés.', 'analytic-suite' ) );
-        echo '<div class="analytic-suite-chart-grid">';
-        $this->render_chart( __( 'Activité principale', 'analytic-suite' ), 'bar', array(
-            __( 'Commandes', 'analytic-suite' )    => $summary['orders'],
-            __( 'Réservations', 'analytic-suite' ) => $summary['bookings'],
-            __( 'Masterclass', 'analytic-suite' )  => $data['contents']['masterclass_follows'],
-            __( 'Livres', 'analytic-suite' )       => $data['contents']['book_downloads'],
-        ) );
-        $this->render_chart( __( 'Contenus par mois', 'analytic-suite' ), 'line', $this->merge_chart_series(
-            $data['contents']['masterclass_by_month'],
-            $data['contents']['books_by_month'],
-            __( 'Masterclass', 'analytic-suite' ),
-            __( 'Livres', 'analytic-suite' )
-        ) );
-        echo '</div>';
-
-        $this->render_section_title( __( 'Réservations', 'analytic-suite' ), __( 'Statuts, catégories, durée dominante et profils les plus représentés.', 'analytic-suite' ) );
-        echo '<div class="analytic-suite-cards">';
-        $this->render_card( __( 'Réservations annulées', 'analytic-suite' ), $summary['cancelled_bookings'] . ' (' . $summary['cancellation_rate'] . '%)' );
-        $this->render_card( __( 'Pays #1 réservations', 'analytic-suite' ), $top_booking_country );
-        $this->render_card( __( 'Civilité #1 réservations', 'analytic-suite' ), $top_booking_gender );
-        $this->render_card( __( 'Durée dominante', 'analytic-suite' ), $data['bookings']['duration_summary']['leader'] );
-        echo '</div>';
-
-        echo '<div class="analytic-suite-chart-grid">';
-        $this->render_chart( __( 'Réservations par catégorie', 'analytic-suite' ), 'doughnut', $data['bookings']['category_breakdown'] );
-        $this->render_chart( __( 'Durées de réservation', 'analytic-suite' ), 'bar', $data['bookings']['duration_breakdown'] );
-        echo '</div>';
-
-        $this->render_section_title( __( 'Contenus', 'analytic-suite' ), __( 'Suivi des masterclass et livres blancs les plus consultés.', 'analytic-suite' ) );
-        echo '<div class="analytic-suite-cards">';
-        $this->render_card( __( 'Suivis masterclass', 'analytic-suite' ), $data['contents']['masterclass_follows'] );
-        $this->render_card( __( 'Livres consultés', 'analytic-suite' ), $data['contents']['book_downloads'] );
-        $this->render_card( __( 'Utilisateurs masterclass', 'analytic-suite' ), $data['contents']['masterclass_users'] );
-        $this->render_card( __( 'Utilisateurs livres', 'analytic-suite' ), $data['contents']['book_users'] );
-        echo '</div>';
-
-        echo '<div class="analytic-suite-grid">';
-        $this->render_breakdown_table( __( 'Top masterclass', 'analytic-suite' ), $data['contents']['top_masterclasses'] );
-        $this->render_breakdown_table( __( 'Top livres blancs', 'analytic-suite' ), $data['contents']['top_books'] );
-        echo '</div>';
-
-        $this->render_section_title( __( 'Détails opérationnels', 'analytic-suite' ), __( 'Tableaux de contrôle pour affiner la lecture des réservations et commandes.', 'analytic-suite' ) );
-        echo '<div class="analytic-suite-grid">';
-        $this->render_breakdown_table( __( 'Dîners / Sessions / Diagnostics', 'analytic-suite' ), $data['bookings']['category_breakdown'] );
-        $this->render_breakdown_table( __( 'Types de réservation détaillés', 'analytic-suite' ), $data['bookings']['type_breakdown'] );
-        $this->render_breakdown_table( __( 'Durées de réservation', 'analytic-suite' ), $data['bookings']['duration_breakdown'] );
-        $this->render_breakdown_table( __( 'Comparaison 30 min / 1h', 'analytic-suite' ), $this->format_duration_summary( $data['bookings']['duration_summary'] ) );
-        $this->render_breakdown_table( __( 'Pays avec le plus de réservations', 'analytic-suite' ), $data['bookings']['country_breakdown'] );
-        $this->render_breakdown_table( __( 'Civilité avec le plus de réservations', 'analytic-suite' ), $data['bookings']['gender_breakdown'] );
-        $this->render_breakdown_table( __( 'Statuts réservations', 'analytic-suite' ), $data['bookings']['status_breakdown'] );
-        $this->render_breakdown_table( __( 'Statuts commandes', 'analytic-suite' ), $data['orders']['status_breakdown'] );
-        echo '</div>';
-    }
-
-    /**
-     * Renders Google Analytics analytics.
-     *
-     * @param array $data Dashboard data.
-     */
-    private function render_google_analytics( $data ) {
-        $ga = $data['ga'];
-
-        if ( empty( $ga['configured'] ) ) {
-            echo '<div class="analytic-suite-panel">';
-            echo '<h2>' . esc_html__( 'Google Analytics 4', 'analytic-suite' ) . '</h2>';
-            echo '<p>' . esc_html__( 'Google Analytics 4 n’est pas encore configuré. Ajoutez le Property ID et la clé JSON dans Paramètres.', 'analytic-suite' ) . '</p>';
-            echo '</div>';
-            return;
-        }
-
-        $this->render_section_title( __( 'Synthèse GA4', 'analytic-suite' ), __( 'Trafic, utilisateurs, sessions et engagement issus de Google Analytics.', 'analytic-suite' ) );
-        $this->render_ga_cards( $ga );
-
-        if ( ! empty( $ga['status']['last_error'] ) ) {
-            echo '<div class="notice notice-error"><p>' . esc_html( sprintf( __( 'Google Analytics 4 ne répond pas : %s', 'analytic-suite' ), $ga['status']['last_error'] ) ) . '</p></div>';
-        }
-
-        $this->render_section_title( __( 'Acquisition et contenus', 'analytic-suite' ), __( 'Sources de trafic, appareils utilisés et pages les plus consultées.', 'analytic-suite' ) );
-        $this->render_ga_charts( $ga );
-
-        $this->render_section_title( __( 'Détails GA4', 'analytic-suite' ), __( 'Tableaux détaillés pour contrôler les principales dimensions Analytics.', 'analytic-suite' ) );
-        echo '<div class="analytic-suite-grid">';
-        $this->render_ga_tables( $data['ga'] );
-        echo '</div>';
-    }
-
-    /**
-     * Renders Google Analytics cards.
-     *
-     * @param array $ga GA data.
-     */
-    private function render_ga_cards( $ga ) {
-        $summary = $ga['summary'];
-        $realtime = $ga['realtime'] ?? array();
-
-        echo '<div class="analytic-suite-cards">';
-        $this->render_card( __( 'Utilisateurs actifs', 'analytic-suite' ), $summary['active_users'] ?? 0 );
-        $this->render_card( __( 'Sessions', 'analytic-suite' ), $summary['sessions'] ?? 0 );
-        $this->render_card( __( 'Pages vues', 'analytic-suite' ), $summary['page_views'] ?? 0 );
-        $this->render_card( __( 'Nouveaux utilisateurs', 'analytic-suite' ), $summary['new_users'] ?? 0 );
-        $this->render_card( __( 'Durée moy. session', 'analytic-suite' ), $summary['avg_duration'] ?? '0s' );
-        $this->render_card( __( 'Taux de rebond', 'analytic-suite' ), ( $summary['bounce_rate'] ?? 0 ) . '%' );
-        if ( ! empty( $realtime['active_users'] ) ) {
-            $this->render_card( __( 'Utilisateurs temps réel', 'analytic-suite' ), $realtime['active_users'] );
-        }
-        echo '</div>';
-    }
-
-    /**
-     * Renders Google Analytics charts.
-     *
-     * @param array $ga GA data.
-     */
-    private function render_ga_charts( $ga ) {
-        echo '<div class="analytic-suite-chart-grid">';
-
-        if ( ! empty( $ga['traffic_sources'] ) ) {
-            $this->render_chart( __( 'Sources de trafic GA4', 'analytic-suite' ), 'doughnut', $ga['traffic_sources'] );
-        }
-
-        if ( ! empty( $ga['demographics']['devices'] ) ) {
-            $this->render_chart( __( 'Appareils GA4', 'analytic-suite' ), 'doughnut', $ga['demographics']['devices'] );
-        }
-
-        $this->render_chart( __( 'Pages vues GA4', 'analytic-suite' ), 'bar', $this->format_ga_page_chart_items( $ga['top_pages'] ?? array() ) );
-
-        echo '</div>';
-    }
-
-    /**
-     * Renders Google Analytics tables.
-     *
-     * @param array $ga GA data.
-     */
-    private function render_ga_tables( $ga ) {
-        $page_list = array();
-        foreach ( $ga['top_pages'] ?? array() as $page ) {
-            $page_list[ $page['path'] ] = $page['views'];
-        }
-        $this->render_breakdown_table( __( 'Pages les plus visitées', 'analytic-suite' ), $page_list );
-
-        if ( ! empty( $ga['demographics']['cities'] ) ) {
-            $this->render_breakdown_table( __( 'Villes (GA4)', 'analytic-suite' ), $ga['demographics']['cities'] );
-        }
-
-        if ( ! empty( $ga['demographics']['countries'] ) ) {
-            $this->render_breakdown_table( __( 'Pays (GA4)', 'analytic-suite' ), $ga['demographics']['countries'] );
-        }
-
-        if ( ! empty( $ga['demographics']['devices'] ) ) {
-            $this->render_breakdown_table( __( 'Appareils', 'analytic-suite' ), $ga['demographics']['devices'] );
-        }
-
-        if ( ! empty( $ga['traffic_sources'] ) ) {
-            $this->render_breakdown_table( __( 'Sources de trafic', 'analytic-suite' ), $ga['traffic_sources'] );
-        }
-    }
-
-    /**
-     * Renders client analytics.
-     *
-     * @param array $data Dashboard data.
-     */
-    private function render_clients( $data ) {
-        echo '<div class="analytic-suite-cards">';
-        $this->render_card( __( 'Clients uniques', 'analytic-suite' ), $data['summary']['unique_customers'] );
-        $this->render_card( __( 'Clients récurrents', 'analytic-suite' ), $data['summary']['recurring_customers'] );
-        $this->render_card( __( 'Clients ayant repris un produit', 'analytic-suite' ), $data['summary']['repeat_product_customers'] );
-        $this->render_card( __( 'Taux de fidélisation', 'analytic-suite' ), $data['orders']['retention_rate'] . '%' );
-        echo '</div>';
-
-        echo '<div class="analytic-suite-chart-grid">';
-        $this->render_chart( __( 'Répartition clients', 'analytic-suite' ), 'bar', array(
-            __( 'Uniques', 'analytic-suite' )    => $data['summary']['unique_customers'],
-            __( 'Récurrents', 'analytic-suite' ) => $data['summary']['recurring_customers'],
-            __( 'Produit repris', 'analytic-suite' ) => $data['summary']['repeat_product_customers'],
-        ) );
-        $this->render_chart( __( 'Pays réservations', 'analytic-suite' ), 'doughnut', $data['bookings']['country_breakdown'] );
-        $this->render_chart( __( 'Civilité réservations', 'analytic-suite' ), 'doughnut', $data['bookings']['gender_breakdown'] );
-        echo '</div>';
-
-        $this->render_breakdown_table( __( 'Réservations par pays', 'analytic-suite' ), $data['bookings']['country_breakdown'] );
-        $this->render_breakdown_table( __( 'Civilité commandes', 'analytic-suite' ), $data['orders']['gender_breakdown'] );
-        $this->render_breakdown_table( __( 'Civilité réservations', 'analytic-suite' ), $data['bookings']['gender_breakdown'] );
-    }
-
-    /**
-     * Renders booking analytics.
-     *
-     * @param array $data Dashboard data.
-     */
-    private function render_bookings( $data ) {
-        echo '<div class="analytic-suite-cards">';
-        $this->render_card( __( 'Total réservations', 'analytic-suite' ), $data['bookings']['total_bookings'] );
-        $this->render_card( __( 'Validées', 'analytic-suite' ), $data['bookings']['confirmed_bookings'] );
-        $this->render_card( __( 'Annulées', 'analytic-suite' ), $data['bookings']['cancelled_bookings'] );
-        $this->render_card( __( 'Taux d’annulation', 'analytic-suite' ), $data['bookings']['cancellation_rate'] . '%' );
-        $this->render_card( __( 'Durée dominante', 'analytic-suite' ), $data['bookings']['duration_summary']['leader'] );
-        echo '</div>';
-
-        echo '<div class="analytic-suite-chart-grid">';
-        $this->render_chart( __( 'Statut des réservations', 'analytic-suite' ), 'doughnut', array(
-            __( 'Validées', 'analytic-suite' ) => $data['bookings']['confirmed_bookings'],
-            __( 'Annulées', 'analytic-suite' ) => $data['bookings']['cancelled_bookings'],
-        ) );
-        $this->render_chart( __( 'Types de réservation', 'analytic-suite' ), 'bar', $data['bookings']['type_breakdown'] );
-        $this->render_chart( __( 'Durées', 'analytic-suite' ), 'bar', $data['bookings']['duration_breakdown'] );
-        echo '</div>';
-
-        echo '<div class="analytic-suite-grid">';
-        $this->render_breakdown_table( __( 'Dîners / Sessions / Diagnostics', 'analytic-suite' ), $data['bookings']['category_breakdown'] );
-        $this->render_breakdown_table( __( 'Types de réservation', 'analytic-suite' ), $data['bookings']['type_breakdown'] );
-        $this->render_breakdown_table( __( 'Durées', 'analytic-suite' ), $data['bookings']['duration_breakdown'] );
-        $this->render_breakdown_table( __( 'Comparaison 30 min / 1h', 'analytic-suite' ), $this->format_duration_summary( $data['bookings']['duration_summary'] ) );
-        $this->render_breakdown_table( __( 'Statuts', 'analytic-suite' ), $data['bookings']['status_breakdown'] );
-        echo '</div>';
-    }
-
-    /**
-     * Renders order analytics.
-     *
-     * @param array $data Dashboard data.
-     */
-    private function render_orders( $data ) {
-        echo '<div class="analytic-suite-cards">';
-        $this->render_card( __( 'Total commandes', 'analytic-suite' ), $data['orders']['total_orders'] );
-        $this->render_card( __( 'Paniers annulés', 'analytic-suite' ), $data['orders']['cancelled_orders'] );
-        $this->render_card( __( 'Chiffre d’affaires', 'analytic-suite' ), $this->format_price( $data['orders']['revenue'] ) );
-        $this->render_card( __( 'Panier moyen', 'analytic-suite' ), $this->format_price( $data['orders']['average_order_value'] ) );
-        echo '</div>';
-
-        echo '<div class="analytic-suite-chart-grid">';
-        $this->render_chart( __( 'Commandes par statut', 'analytic-suite' ), 'doughnut', $data['orders']['status_breakdown'] );
-        $this->render_chart( __( 'Ventes par produit', 'analytic-suite' ), 'bar', $this->format_product_chart_items( $data['orders']['product_sales'], 'quantity' ) );
-        $this->render_chart( __( 'CA par produit', 'analytic-suite' ), 'bar', $this->format_product_chart_items( $data['orders']['product_sales'], 'revenue' ) );
-        echo '</div>';
-
-        $this->render_product_table( $data['orders']['product_sales'] );
-    }
-
-    /**
-     * Renders content analytics.
-     *
-     * @param array $data Dashboard data.
-     */
-    private function render_contents( $data ) {
-        echo '<div class="analytic-suite-cards">';
-        $this->render_card( __( 'Masterclass publiées', 'analytic-suite' ), $data['contents']['total_masterclasses'] );
-        $this->render_card( __( 'Masterclass suivies', 'analytic-suite' ), $data['contents']['masterclass_follows'] );
-        $this->render_card( __( 'Utilisateurs masterclass', 'analytic-suite' ), $data['contents']['masterclass_users'] );
-        $this->render_card( __( 'Masterclass avec replay', 'analytic-suite' ), $data['contents']['masterclass_replays'] );
-        $this->render_card( __( 'Masterclass à venir', 'analytic-suite' ), $data['contents']['upcoming_masterclasses'] );
-        $this->render_card( __( 'Livres publiés', 'analytic-suite' ), $data['contents']['total_books'] );
-        $this->render_card( __( 'Livres consultés', 'analytic-suite' ), $data['contents']['book_downloads'] );
-        $this->render_card( __( 'Utilisateurs livres', 'analytic-suite' ), $data['contents']['book_users'] );
-        echo '</div>';
-
-        echo '<div class="analytic-suite-chart-grid">';
-        $this->render_chart( __( 'Consultations par mois', 'analytic-suite' ), 'line', $this->merge_chart_series(
-            $data['contents']['masterclass_by_month'],
-            $data['contents']['books_by_month'],
-            __( 'Masterclass', 'analytic-suite' ),
-            __( 'Livres', 'analytic-suite' )
-        ) );
-        $this->render_chart( __( 'Top masterclass', 'analytic-suite' ), 'bar', $data['contents']['top_masterclasses'] );
-        $this->render_chart( __( 'Top livres blancs', 'analytic-suite' ), 'bar', $data['contents']['top_books'] );
-        echo '</div>';
-
-        echo '<div class="analytic-suite-grid">';
-        $this->render_breakdown_table( __( 'Top masterclass suivies', 'analytic-suite' ), $data['contents']['top_masterclasses'] );
-        $this->render_breakdown_table( __( 'Top livres consultés', 'analytic-suite' ), $data['contents']['top_books'] );
-        $this->render_breakdown_table( __( 'Suivis masterclass par mois', 'analytic-suite' ), $data['contents']['masterclass_by_month'] );
-        $this->render_breakdown_table( __( 'Consultations livres par mois', 'analytic-suite' ), $data['contents']['books_by_month'] );
-        echo '</div>';
-    }
-
-    /**
-     * Renders reports page.
-     *
-     * @param array $data Dashboard data.
-     */
-    private function render_reports( $data ) {
-        echo '<div class="analytic-suite-panel">';
-        echo '<h2>' . esc_html__( 'Rapport de synthèse', 'analytic-suite' ) . '</h2>';
-        echo '<p>' . esc_html( sprintf( __( 'Généré le %s.', 'analytic-suite' ), $data['generated_at'] ) ) . '</p>';
-        echo '</div>';
-        $this->render_dashboard( $data );
-    }
-
-    /**
-     * Renders export page.
-     *
-     * @param array $filters Filters.
-     */
-    private function render_exports( $filters ) {
-        echo '<div class="analytic-suite-panel">';
-        echo '<h2>' . esc_html__( 'Exporter les données', 'analytic-suite' ) . '</h2>';
-        echo '<p>' . esc_html__( 'Téléchargez la synthèse avec les filtres actuellement appliqués.', 'analytic-suite' ) . '</p>';
-        echo '<div class="analytic-suite-export-actions">';
-        $this->render_export_form( 'analytic_suite_export_csv', 'analytic_suite_export_csv', __( 'Télécharger CSV', 'analytic-suite' ), $filters );
-        $this->render_export_form( 'analytic_suite_export_excel', 'analytic_suite_export_excel', __( 'Télécharger Excel', 'analytic-suite' ), $filters );
-        $this->render_export_form( 'analytic_suite_export_pdf', 'analytic_suite_export_pdf', __( 'Télécharger PDF', 'analytic-suite' ), $filters );
-        echo '</div></div>';
-    }
-
-    /**
-     * Renders an export form.
-     *
-     * @param string $action  Admin-post action.
-     * @param string $nonce   Nonce action.
-     * @param string $label   Button label.
-     * @param array  $filters Current filters.
-     */
-    private function render_export_form( $action, $nonce, $label, $filters ) {
-        echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '">';
-        echo '<input type="hidden" name="action" value="' . esc_attr( $action ) . '">';
-        wp_nonce_field( $nonce );
-
-        foreach ( $filters as $key => $value ) {
-            echo '<input type="hidden" name="' . esc_attr( $key ) . '" value="' . esc_attr( $value ) . '">';
-        }
-
-        submit_button( $label, 'primary', 'submit', false );
-        echo '</form>';
-    }
-
-    /**
-     * Renders settings page.
-     *
-     * @param array $data Dashboard data.
-     */
-    private function render_settings( $data ) {
-        echo '<div class="analytic-suite-panel">';
-        echo '<h2>' . esc_html__( 'État des intégrations', 'analytic-suite' ) . '</h2>';
-        echo '<table class="widefat striped"><tbody>';
-        echo '<tr><th>' . esc_html__( 'WooCommerce', 'analytic-suite' ) . '</th><td>' . esc_html( $data['orders']['available'] ? __( 'Détecté', 'analytic-suite' ) : __( 'Non détecté', 'analytic-suite' ) ) . '</td></tr>';
-        echo '<tr><th>' . esc_html__( 'FluentBooking', 'analytic-suite' ) . '</th><td>' . esc_html( $data['bookings']['available'] ? __( 'Détecté', 'analytic-suite' ) : __( 'Non détecté', 'analytic-suite' ) ) . '</td></tr>';
-        echo '<tr><th>' . esc_html__( 'Table user_masterclass', 'analytic-suite' ) . '</th><td>' . esc_html( $data['contents']['masterclass_table'] ? __( 'Détectée', 'analytic-suite' ) : __( 'Non détectée', 'analytic-suite' ) ) . '</td></tr>';
-        echo '<tr><th>' . esc_html__( 'Table user_livres', 'analytic-suite' ) . '</th><td>' . esc_html( $data['contents']['books_table'] ? __( 'Détectée', 'analytic-suite' ) : __( 'Non détectée', 'analytic-suite' ) ) . '</td></tr>';
-        echo '<tr><th>' . esc_html__( 'Dernière synchronisation', 'analytic-suite' ) . '</th><td>' . esc_html( get_option( 'analytic_suite_last_sync', __( 'Jamais', 'analytic-suite' ) ) ) . '</td></tr>';
-        echo '</tbody></table></div>';
-
-        $this->render_ga_settings();
-    }
-
-    /**
-     * Renders Google Analytics settings.
-     */
-    private function render_ga_settings() {
-        echo '<div class="analytic-suite-panel">';
-        echo '<h2>' . esc_html__( 'Google Analytics 4', 'analytic-suite' ) . '</h2>';
-
-        if ( isset( $_POST['analytic_suite_save_ga'] ) && check_admin_referer( 'analytic_suite_ga_settings' ) ) {
-            $property_id   = sanitize_text_field( wp_unslash( $_POST['ga_property_id'] ?? '' ) );
-            $client_id     = sanitize_text_field( wp_unslash( $_POST['ga_client_id'] ?? '' ) );
-            $client_secret = sanitize_text_field( wp_unslash( $_POST['ga_client_secret'] ?? '' ) );
-            $refresh_token = sanitize_text_field( wp_unslash( $_POST['ga_refresh_token'] ?? '' ) );
-
-            update_option( 'analytic_suite_ga_property_id', $property_id );
-            update_option( 'analytic_suite_ga_client_id', $client_id );
-            update_option( 'analytic_suite_ga_client_secret', $client_secret );
-            if ( ! empty( $refresh_token ) ) {
-                update_option( 'analytic_suite_ga_refresh_token', $refresh_token );
-            }
-
-            $this->save_appearance_settings( $_POST );
-
-            $ga = new Analytic_Suite_Google_Analytics();
-            $ga->clear_cache();
-
-            echo '<div class="notice notice-success"><p>' . esc_html__( 'Paramètres enregistrés.', 'analytic-suite' ) . '</p></div>';
-        }
-
-        $ga = new Analytic_Suite_Google_Analytics();
-        $test = $ga->test_connection();
-
-        echo '<form method="post">';
-        wp_nonce_field( 'analytic_suite_ga_settings' );
-
-        echo '<table class="widefat"><tbody>';
-        echo '<tr><th>' . esc_html__( 'Property ID GA4', 'analytic-suite' ) . '</th>';
-        echo '<td><input type="text" name="ga_property_id" value="' . esc_attr( get_option( 'analytic_suite_ga_property_id', '' ) ) . '" class="regular-text" placeholder="XXXXXXXXX">';
-        echo '<p class="description">Ex: 1234567890 (dans GA4 > Administration > Propriété)</p></td></tr>';
-
-        echo '<tr><th>' . esc_html__( 'Client ID OAuth2', 'analytic-suite' ) . '</th>';
-        echo '<td><input type="text" name="ga_client_id" value="' . esc_attr( get_option( 'analytic_suite_ga_client_id', '' ) ) . '" class="large-text" placeholder="XXXXXXX.apps.googleusercontent.com">';
-        echo '<p class="description">' . esc_html__( 'Client ID de votre application OAuth2 (Google Cloud Console > Identifiants).', 'analytic-suite' ) . '</p></td></tr>';
-
-        echo '<tr><th>' . esc_html__( 'Client Secret OAuth2', 'analytic-suite' ) . '</th>';
-        echo '<td><input type="password" name="ga_client_secret" value="' . esc_attr( get_option( 'analytic_suite_ga_client_secret', '' ) ) . '" class="large-text">';
-        echo '<p class="description">' . esc_html__( 'Client Secret de votre application OAuth2.', 'analytic-suite' ) . '</p></td></tr>';
-
-        echo '<tr><th>' . esc_html__( 'Refresh Token', 'analytic-suite' ) . '</th>';
-        $has_token = ! empty( get_option( 'analytic_suite_ga_refresh_token', '' ) );
-        echo '<td><input type="password" name="ga_refresh_token" value="" class="large-text" placeholder="' . ( $has_token ? esc_attr__( '(token enregistré — laisser vide pour conserver)', 'analytic-suite' ) : '' ) . '">';
-        echo '<p class="description">' . esc_html__( 'Refresh Token OAuth2 obtenu lors de l\'autorisation. Laisser vide pour conserver le token actuel.', 'analytic-suite' ) . '</p></td></tr>';
-
-        echo '<tr><th>' . esc_html__( 'Statut', 'analytic-suite' ) . '</th>';
-        echo '<td>';
-        if ( $test['success'] ) {
-            echo '<span style="color: #0f766e; font-weight: 700;">✓ ' . esc_html( $test['message'] ) . '</span>';
-        } else {
-            echo '<span style="color: #b42318;">✗ ' . esc_html( $test['message'] ) . '</span>';
-        }
-        echo '</td></tr>';
-
-        echo '<tr><th>' . esc_html__( 'Pages suivies', 'analytic-suite' ) . '</th>';
-        echo '<td><code>/contenus-gratuits/</code> &middot; <code>/expert-session/</code> &middot; <code>/livre/</code>';
-        echo '<p class="description">' . esc_html__( 'Les données GA4 du shortcode public couvrent toutes les URLs commençant par ces préfixes.', 'analytic-suite' ) . '</p>';
-        echo '</td></tr>';
-
-        echo '<tr><th></th><td>';
-        echo '<label><input type="checkbox" name="ga_clear_cache" value="1"> ' . esc_html__( 'Vider le cache GA', 'analytic-suite' ) . '</label>';
-        echo '</td></tr>';
-
-        echo '</tbody></table>';
-
-        $this->render_appearance_settings();
-
-        submit_button( __( 'Enregistrer', 'analytic-suite' ), 'primary', 'analytic_suite_save_ga', false );
-        echo '</form></div>';
-    }
-
-    /**
-     * Saves appearance settings.
-     *
-     * @param array $source Posted values.
-     */
-    private function save_appearance_settings( $source ) {
-        $color_options = array(
-            'analytic_suite_color_primary' => '#0f766e',
-            'analytic_suite_color_accent'  => '#d69a3a',
-            'analytic_suite_color_header'  => '#10231f',
-            'analytic_suite_color_surface' => '#ffffff',
-        );
-
-        foreach ( $color_options as $option => $default ) {
-            $value = sanitize_hex_color( wp_unslash( $source[ $option ] ?? $default ) );
-            update_option( $option, $value ? $value : $default );
-        }
-
-        update_option( 'analytic_suite_header_badge', sanitize_text_field( wp_unslash( $source['analytic_suite_header_badge'] ?? 'Pro Analytics' ) ) );
-    }
-
-    /**
-     * Renders appearance settings.
-     */
-    private function render_appearance_settings() {
-        echo '<div class="analytic-suite-settings-section">';
-        echo '<h2>' . esc_html__( 'Apparence', 'analytic-suite' ) . '</h2>';
-        echo '<table class="widefat"><tbody>';
-        $this->render_color_setting( 'analytic_suite_color_primary', __( 'Couleur principale', 'analytic-suite' ), '#0f766e' );
-        $this->render_color_setting( 'analytic_suite_color_accent', __( 'Couleur accent', 'analytic-suite' ), '#d69a3a' );
-        $this->render_color_setting( 'analytic_suite_color_header', __( 'Fond du header admin', 'analytic-suite' ), '#10231f' );
-        $this->render_color_setting( 'analytic_suite_color_surface', __( 'Surface des cartes', 'analytic-suite' ), '#ffffff' );
-        echo '<tr><th>' . esc_html__( 'Badge du header', 'analytic-suite' ) . '</th>';
-        echo '<td><input type="text" name="analytic_suite_header_badge" value="' . esc_attr( get_option( 'analytic_suite_header_badge', 'Pro Analytics' ) ) . '" class="regular-text">';
-        echo '<p class="description">' . esc_html__( 'Texte affiché dans le badge du header admin.', 'analytic-suite' ) . '</p></td></tr>';
-        echo '</tbody></table>';
-        echo '</div>';
-    }
-
-    /**
-     * Renders a color field.
-     *
-     * @param string $option  Option name.
-     * @param string $label   Label.
-     * @param string $default Default color.
-     */
-    private function render_color_setting( $option, $label, $default ) {
-        $value = sanitize_hex_color( get_option( $option, $default ) );
-        echo '<tr><th>' . esc_html( $label ) . '</th>';
-        echo '<td><input type="color" name="' . esc_attr( $option ) . '" value="' . esc_attr( $value ? $value : $default ) . '"></td></tr>';
-    }
-
-    /**
-     * Renders a stat card.
-     *
-     * @param string $label Label.
-     * @param mixed  $value Value.
-     */
-    private function render_card( $label, $value ) {
-        echo '<div class="analytic-suite-card"><span>' . esc_html( $label ) . '</span><strong>' . wp_kses_post( (string) $value ) . '</strong></div>';
-    }
-
-    /**
-     * Renders a section title.
-     *
-     * @param string $title       Title.
-     * @param string $description Description.
-     */
-    private function render_section_title( $title, $description = '' ) {
-        echo '<div class="analytic-suite-section-title">';
-        echo '<h2>' . esc_html( $title ) . '</h2>';
-
-        if ( '' !== $description ) {
-            echo '<p>' . esc_html( $description ) . '</p>';
-        }
-
-        echo '</div>';
-    }
-
-    /**
-     * Renders an interactive chart container.
-     *
-     * @param string $title Chart title.
-     * @param string $type  Chart type.
-     * @param array  $items Chart items.
-     */
-    private function render_chart( $title, $type, $items ) {
-        $points = $this->normalize_chart_points( $items );
-
-        echo '<div class="analytic-suite-chart-panel">';
-        echo '<h2>' . esc_html( $title ) . '</h2>';
-
-        if ( empty( $points ) ) {
-            echo '<p>' . esc_html__( 'Aucune donnée disponible.', 'analytic-suite' ) . '</p></div>';
-            return;
-        }
-
-        echo '<div class="analytic-suite-chart-wrap">';
-        echo $this->render_chart_fallback( $points );
-        echo '<canvas class="analytic-suite-chart" height="260" data-chart-type="' . esc_attr( $type ) . '" data-chart-points="' . esc_attr( wp_json_encode( $points ) ) . '" aria-label="' . esc_attr( $title ) . '" role="img"></canvas>';
-        echo '</div>';
-        echo '</div>';
-    }
-
-    /**
-     * Renders a non-JS fallback so charts are still visible if the canvas script does not run.
-     *
-     * @param array $points Chart points.
-     * @return string
-     */
-    private function render_chart_fallback( $points ) {
-        $max = 0;
-        foreach ( $points as $point ) {
-            $max = max( $max, (float) $point['value'] );
-        }
-
-        $output = '<div class="analytic-suite-chart-fallback" aria-hidden="true">';
-
-        foreach ( $points as $index => $point ) {
-            $value   = (float) $point['value'];
-            $percent = $max > 0 ? min( 100, round( ( $value / $max ) * 100, 2 ) ) : 0;
-
-            $output .= '<div class="analytic-suite-chart-row">';
-            $output .= '<span class="analytic-suite-chart-label">' . esc_html( $point['label'] ) . '</span>';
-            $output .= '<span class="analytic-suite-chart-track"><span class="analytic-suite-chart-fill" style="width:' . esc_attr( $percent ) . '%"></span></span>';
-            $output .= '<strong class="analytic-suite-chart-value">' . esc_html( number_format_i18n( $value, 0 ) ) . '</strong>';
-            $output .= '</div>';
-        }
-
-        $output .= '</div>';
-
-        return $output;
-    }
-
-    /**
-     * Normalizes chart values into label/value points.
-     *
-     * @param array $items Raw items.
-     * @return array
-     */
-    private function normalize_chart_points( $items ) {
-        $points = array();
-
-        foreach ( (array) $items as $label => $value ) {
-            if ( is_array( $value ) && isset( $value['value'] ) ) {
-                $points[] = array(
-                    'label' => (string) $label,
-                    'value' => (float) $value['value'],
-                    'meta'  => isset( $value['meta'] ) ? (string) $value['meta'] : '',
-                );
-                continue;
-            }
-
-            if ( is_numeric( $value ) ) {
-                $points[] = array(
-                    'label' => (string) $label,
-                    'value' => (float) $value,
-                );
-            }
-        }
-
-        return $points;
-    }
-
-    /**
-     * Merges two date series into chart points.
-     *
-     * @param array  $first        First series.
-     * @param array  $second       Second series.
-     * @param string $first_label  First label.
-     * @param string $second_label Second label.
-     * @return array
-     */
-    private function merge_chart_series( $first, $second, $first_label, $second_label ) {
-        $months = array_unique( array_merge( array_keys( (array) $first ), array_keys( (array) $second ) ) );
-        sort( $months );
-
-        $points = array();
-        foreach ( $months as $month ) {
-            $first_value  = isset( $first[ $month ] ) ? (int) $first[ $month ] : 0;
-            $second_value = isset( $second[ $month ] ) ? (int) $second[ $month ] : 0;
-
-            $points[ $month ] = array(
-                'value' => $first_value + $second_value,
-                'meta'  => $first_label . ': ' . $first_value . ' · ' . $second_label . ': ' . $second_value,
-            );
-        }
-
-        return $points;
-    }
-
-    /**
-     * Formats product sales as chart items.
-     *
-     * @param array  $items Product sales.
-     * @param string $key   Metric key.
-     * @return array
-     */
-    private function format_product_chart_items( $items, $key ) {
-        $chart_items = array();
-
-        foreach ( (array) $items as $item ) {
-            if ( empty( $item['name'] ) || ! isset( $item[ $key ] ) ) {
-                continue;
-            }
-
-            $chart_items[ $item['name'] ] = (float) $item[ $key ];
-        }
-
-        return $chart_items;
-    }
-
-    /**
-     * Formats GA pages as chart items.
-     *
-     * @param array $items GA page rows.
-     * @return array
-     */
-    private function format_ga_page_chart_items( $items ) {
-        $chart_items = array();
-
-        foreach ( array_slice( (array) $items, 0, 8 ) as $item ) {
-            if ( empty( $item['path'] ) || ! isset( $item['views'] ) ) {
-                continue;
-            }
-
-            $chart_items[ $item['path'] ] = (int) $item['views'];
-        }
-
-        return $chart_items;
-    }
-
-    /**
-     * Renders a key/value breakdown.
-     *
-     * @param string $title Title.
-     * @param array  $items Items.
-     */
-    private function render_breakdown_table( $title, $items ) {
-        echo '<div class="analytic-suite-panel"><h2>' . esc_html( $title ) . '</h2>';
-
-        if ( empty( $items ) ) {
-            echo '<p>' . esc_html__( 'Aucune donnée disponible.', 'analytic-suite' ) . '</p></div>';
-            return;
-        }
-
-        echo '<table class="widefat striped"><thead><tr><th>' . esc_html__( 'Libellé', 'analytic-suite' ) . '</th><th>' . esc_html__( 'Valeur', 'analytic-suite' ) . '</th></tr></thead><tbody>';
-        foreach ( $items as $label => $value ) {
-            echo '<tr><td>' . esc_html( $label ) . '</td><td>' . esc_html( $value ) . '</td></tr>';
-        }
-        echo '</tbody></table></div>';
-    }
-
-    /**
-     * Gets the first label from a sorted breakdown.
-     *
-     * @param array $items Items.
-     * @return string
-     */
-    private function get_top_breakdown_label( $items ) {
-        if ( empty( $items ) ) {
-            return __( 'Aucune donnée', 'analytic-suite' );
-        }
-
-        $label = key( $items );
-        $value = current( $items );
-
-        return $label . ' (' . $value . ')';
-    }
-
-    /**
-     * Formats duration summary for display.
-     *
-     * @param array $summary Summary.
-     * @return array
-     */
-    private function format_duration_summary( $summary ) {
-        return array(
-            __( 'Sessions de 30 min', 'analytic-suite' ) => isset( $summary['30 min'] ) ? $summary['30 min'] : 0,
-            __( 'Sessions de 1h', 'analytic-suite' )     => isset( $summary['1h'] ) ? $summary['1h'] : 0,
-            __( 'Plus fréquent', 'analytic-suite' )      => isset( $summary['leader'] ) ? $summary['leader'] : __( 'Égalité', 'analytic-suite' ),
-        );
-    }
-
-    /**
-     * Renders product sales.
-     *
-     * @param array $items Product sales.
-     */
-    private function render_product_table( $items ) {
-        echo '<div class="analytic-suite-panel"><h2>' . esc_html__( 'Répartition des ventes par produit', 'analytic-suite' ) . '</h2>';
-
-        if ( empty( $items ) ) {
-            echo '<p>' . esc_html__( 'Aucune donnée disponible.', 'analytic-suite' ) . '</p></div>';
-            return;
-        }
-
-        echo '<table class="widefat striped"><thead><tr><th>' . esc_html__( 'Produit', 'analytic-suite' ) . '</th><th>' . esc_html__( 'Quantité', 'analytic-suite' ) . '</th><th>' . esc_html__( 'CA', 'analytic-suite' ) . '</th></tr></thead><tbody>';
-        foreach ( $items as $item ) {
-            echo '<tr><td>' . esc_html( $item['name'] ) . '</td><td>' . esc_html( $item['quantity'] ) . '</td><td>' . wp_kses_post( $this->format_price( $item['revenue'] ) ) . '</td></tr>';
-        }
-        echo '</tbody></table></div>';
-    }
-
-    /**
-     * Formats a monetary value with WooCommerce when available.
-     *
-     * @param float $amount Amount.
-     * @return string
-     */
-    private function format_price( $amount ) {
-        if ( function_exists( 'wc_price' ) ) {
-            return wc_price( $amount );
-        }
-
-        return number_format_i18n( (float) $amount, 2 );
-    }
+	/**
+	 * Registers menu — Settings only.
+	 */
+	public function register_menu() {
+		add_menu_page(
+			__( 'Pro Analytics', 'analytic-suite' ),
+			__( 'Pro Analytics', 'analytic-suite' ),
+			'analytic_suite_manage_analytics',
+			'analytic-suite',
+			array( $this, 'render_settings_page' ),
+			'dashicons-rest-api',
+			56
+		);
+	}
+
+	/**
+	 * Renders the settings page.
+	 */
+	public function render_settings_page() {
+		if ( ! current_user_can( 'analytic_suite_manage_analytics' ) ) {
+			wp_die( esc_html__( 'Accès refusé.', 'analytic-suite' ) );
+		}
+
+		echo '<div class="wrap analytic-suite">';
+		$this->render_page_header();
+		$this->render_status_panel();
+		$this->render_ga_settings();
+		echo '</div>';
+	}
+
+	// -------------------------------------------------------------------------
+	// Status panel
+	// -------------------------------------------------------------------------
+
+	/**
+	 * Renders integration status.
+	 */
+	private function render_status_panel() {
+		global $wpdb;
+
+		$wc_ok     = function_exists( 'wc_get_orders' );
+		$fb_table  = $this->find_first_fb_table();
+		$mc_table  = $wpdb->prefix . 'user_masterclass';
+		$mc_ok     = $mc_table === $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $mc_table ) );
+		$lb_table  = $wpdb->prefix . 'user_livres';
+		$lb_ok     = $lb_table === $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $lb_table ) );
+
+		echo '<div class="analytic-suite-panel">';
+		echo '<h2>' . esc_html__( 'État des intégrations', 'analytic-suite' ) . '</h2>';
+		echo '<table class="widefat striped"><tbody>';
+
+		$this->render_status_row( __( 'WooCommerce', 'analytic-suite' ), $wc_ok );
+		$this->render_status_row( __( 'FluentBooking', 'analytic-suite' ), '' !== $fb_table, $fb_table );
+		$this->render_status_row( __( 'Table wp_user_masterclass', 'analytic-suite' ), $mc_ok );
+		$this->render_status_row( __( 'Table wp_user_livres', 'analytic-suite' ), $lb_ok );
+
+		echo '<tr><th>' . esc_html__( 'Dernière synchronisation', 'analytic-suite' ) . '</th>';
+		echo '<td>' . esc_html( get_option( 'analytic_suite_last_sync', __( 'Jamais', 'analytic-suite' ) ) ) . '</td></tr>';
+
+		echo '</tbody></table>';
+		echo '</div>';
+
+		echo '<div class="analytic-suite-panel">';
+		echo '<h2>' . esc_html__( 'Endpoints de synchronisation', 'analytic-suite' ) . '</h2>';
+		echo '<p>' . esc_html__( 'Authentification : WordPress Application Passwords (Basic Auth).', 'analytic-suite' ) . '</p>';
+		echo '<table class="widefat striped"><tbody>';
+
+		$base = esc_url( rest_url( 'analytic-suite/v1' ) );
+		$endpoints = array(
+			'/sync/masterclass-registrations' => 'masterclass_registrations (BigQuery)',
+			'/sync/expert-sessions'           => 'expert_sessions (BigQuery)',
+			'/sync/orders'                    => 'wc_orders (BigQuery)',
+			'/sync/users'                     => 'wp_users (BigQuery)',
+			'/status'                         => 'Health check n8n',
+		);
+
+		foreach ( $endpoints as $path => $label ) {
+			echo '<tr>';
+			echo '<td><code>' . esc_html( $base . $path ) . '</code></td>';
+			echo '<td>' . esc_html( $label ) . '</td>';
+			echo '</tr>';
+		}
+
+		echo '</tbody></table>';
+		echo '</div>';
+	}
+
+	/**
+	 * Renders a status table row.
+	 *
+	 * @param string $label   Row label.
+	 * @param bool   $ok      Status.
+	 * @param string $detail  Optional detail text.
+	 */
+	private function render_status_row( $label, $ok, $detail = '' ) {
+		$status = $ok
+			? '<span style="color:#0f766e;font-weight:700;">&#10003; ' . esc_html__( 'Détecté', 'analytic-suite' ) . '</span>'
+			: '<span style="color:#b42318;">&#10007; ' . esc_html__( 'Non détecté', 'analytic-suite' ) . '</span>';
+
+		echo '<tr><th>' . esc_html( $label ) . '</th><td>' . wp_kses_post( $status );
+		if ( $ok && '' !== $detail ) {
+			echo ' <code>' . esc_html( $detail ) . '</code>';
+		}
+		echo '</td></tr>';
+	}
+
+	/**
+	 * Returns the first detected FluentBooking table name.
+	 *
+	 * @return string Full table name or empty string.
+	 */
+	private function find_first_fb_table() {
+		global $wpdb;
+
+		$known = array( 'fcal_bookings', 'fluent_booking_appointments', 'fluentcalendar_bookings', 'fluent_bookings', 'fcal_appointments' );
+
+		foreach ( $known as $slug ) {
+			$t = $wpdb->prefix . $slug;
+			if ( $t === $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $t ) ) ) {
+				return $t;
+			}
+		}
+
+		return '';
+	}
+
+	// -------------------------------------------------------------------------
+	// GA settings
+	// -------------------------------------------------------------------------
+
+	/**
+	 * Renders and processes Google Analytics settings form.
+	 */
+	private function render_ga_settings() {
+		echo '<div class="analytic-suite-panel">';
+		echo '<h2>' . esc_html__( 'Google Analytics 4', 'analytic-suite' ) . '</h2>';
+
+		if ( isset( $_POST['analytic_suite_save_ga'] ) && check_admin_referer( 'analytic_suite_ga_settings' ) ) {
+			$property_id   = sanitize_text_field( wp_unslash( $_POST['ga_property_id'] ?? '' ) );
+			$client_id     = sanitize_text_field( wp_unslash( $_POST['ga_client_id'] ?? '' ) );
+			$client_secret = sanitize_text_field( wp_unslash( $_POST['ga_client_secret'] ?? '' ) );
+			$refresh_token = sanitize_text_field( wp_unslash( $_POST['ga_refresh_token'] ?? '' ) );
+
+			update_option( 'analytic_suite_ga_property_id', $property_id );
+			update_option( 'analytic_suite_ga_client_id', $client_id );
+			update_option( 'analytic_suite_ga_client_secret', $client_secret );
+
+			if ( ! empty( $refresh_token ) ) {
+				update_option( 'analytic_suite_ga_refresh_token', $refresh_token );
+			}
+
+			$this->save_appearance_settings( $_POST );
+
+			$ga = new Analytic_Suite_Google_Analytics();
+			$ga->clear_cache();
+
+			echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__( 'Paramètres enregistrés.', 'analytic-suite' ) . '</p></div>';
+		}
+
+		$ga   = new Analytic_Suite_Google_Analytics();
+		$test = $ga->test_connection();
+
+		echo '<form method="post">';
+		wp_nonce_field( 'analytic_suite_ga_settings' );
+
+		echo '<table class="widefat"><tbody>';
+
+		echo '<tr><th>' . esc_html__( 'Property ID GA4', 'analytic-suite' ) . '</th>';
+		echo '<td><input type="text" name="ga_property_id" value="' . esc_attr( get_option( 'analytic_suite_ga_property_id', '' ) ) . '" class="regular-text" placeholder="XXXXXXXXX">';
+		echo '<p class="description">' . esc_html__( 'Ex : 1234567890 (GA4 > Administration > Propriété)', 'analytic-suite' ) . '</p></td></tr>';
+
+		echo '<tr><th>' . esc_html__( 'Client ID OAuth2', 'analytic-suite' ) . '</th>';
+		echo '<td><input type="text" name="ga_client_id" value="' . esc_attr( get_option( 'analytic_suite_ga_client_id', '' ) ) . '" class="large-text" placeholder="XXXXXXX.apps.googleusercontent.com">';
+		echo '<p class="description">' . esc_html__( 'Client ID de votre application OAuth2 (Google Cloud Console > Identifiants).', 'analytic-suite' ) . '</p></td></tr>';
+
+		echo '<tr><th>' . esc_html__( 'Client Secret OAuth2', 'analytic-suite' ) . '</th>';
+		echo '<td><input type="password" name="ga_client_secret" value="' . esc_attr( get_option( 'analytic_suite_ga_client_secret', '' ) ) . '" class="large-text">';
+		echo '<p class="description">' . esc_html__( 'Client Secret de votre application OAuth2.', 'analytic-suite' ) . '</p></td></tr>';
+
+		echo '<tr><th>' . esc_html__( 'Refresh Token', 'analytic-suite' ) . '</th>';
+		$has_token = ! empty( get_option( 'analytic_suite_ga_refresh_token', '' ) );
+		echo '<td><input type="password" name="ga_refresh_token" value="" class="large-text"';
+		if ( $has_token ) {
+			echo ' placeholder="' . esc_attr__( '(token enregistré — laisser vide pour conserver)', 'analytic-suite' ) . '"';
+		}
+		echo '>';
+		echo '<p class="description">' . esc_html__( 'Laisser vide pour conserver le token actuel.', 'analytic-suite' ) . '</p></td></tr>';
+
+		echo '<tr><th>' . esc_html__( 'Statut connexion', 'analytic-suite' ) . '</th><td>';
+		if ( $test['success'] ) {
+			echo '<span style="color:#0f766e;font-weight:700;">&#10003; ' . esc_html( $test['message'] ) . '</span>';
+		} else {
+			echo '<span style="color:#b42318;">&#10007; ' . esc_html( $test['message'] ) . '</span>';
+		}
+		echo '</td></tr>';
+
+		echo '<tr><th></th><td><label><input type="checkbox" name="ga_clear_cache" value="1"> ';
+		echo esc_html__( 'Vider le cache GA au save', 'analytic-suite' ) . '</label></td></tr>';
+
+		echo '</tbody></table>';
+
+		$this->render_appearance_settings();
+
+		submit_button( __( 'Enregistrer', 'analytic-suite' ), 'primary', 'analytic_suite_save_ga', false );
+		echo '</form></div>';
+	}
+
+	/**
+	 * Renders color/appearance settings fields.
+	 */
+	private function render_appearance_settings() {
+		echo '<div class="analytic-suite-settings-section">';
+		echo '<h2>' . esc_html__( 'Apparence', 'analytic-suite' ) . '</h2>';
+		echo '<table class="widefat"><tbody>';
+		$this->render_color_setting( 'analytic_suite_color_primary', __( 'Couleur principale', 'analytic-suite' ), '#0f766e' );
+		$this->render_color_setting( 'analytic_suite_color_accent', __( 'Couleur accent', 'analytic-suite' ), '#d69a3a' );
+		$this->render_color_setting( 'analytic_suite_color_header', __( 'Fond du header admin', 'analytic-suite' ), '#10231f' );
+		$this->render_color_setting( 'analytic_suite_color_surface', __( 'Surface des cartes', 'analytic-suite' ), '#ffffff' );
+		echo '<tr><th>' . esc_html__( 'Badge du header', 'analytic-suite' ) . '</th>';
+		echo '<td><input type="text" name="analytic_suite_header_badge" value="' . esc_attr( get_option( 'analytic_suite_header_badge', 'Pro Analytics' ) ) . '" class="regular-text"></td></tr>';
+		echo '</tbody></table></div>';
+	}
+
+	/**
+	 * Saves appearance options from posted data.
+	 *
+	 * @param array $source $_POST values.
+	 */
+	private function save_appearance_settings( $source ) {
+		$color_options = array(
+			'analytic_suite_color_primary' => '#0f766e',
+			'analytic_suite_color_accent'  => '#d69a3a',
+			'analytic_suite_color_header'  => '#10231f',
+			'analytic_suite_color_surface' => '#ffffff',
+		);
+
+		foreach ( $color_options as $option => $default ) {
+			$value = sanitize_hex_color( wp_unslash( $source[ $option ] ?? $default ) );
+			update_option( $option, $value ? $value : $default );
+		}
+
+		update_option(
+			'analytic_suite_header_badge',
+			sanitize_text_field( wp_unslash( $source['analytic_suite_header_badge'] ?? 'Pro Analytics' ) )
+		);
+	}
+
+	/**
+	 * Renders a color picker settings row.
+	 *
+	 * @param string $option  Option name.
+	 * @param string $label   Row label.
+	 * @param string $default Default hex color.
+	 */
+	private function render_color_setting( $option, $label, $default ) {
+		$value = sanitize_hex_color( get_option( $option, $default ) );
+		echo '<tr><th>' . esc_html( $label ) . '</th>';
+		echo '<td><input type="color" name="' . esc_attr( $option ) . '" value="' . esc_attr( $value ? $value : $default ) . '"></td></tr>';
+	}
+
+	/**
+	 * Renders the page header.
+	 */
+	private function render_page_header() {
+		$badge = get_option( 'analytic_suite_header_badge', __( 'Pro Analytics', 'analytic-suite' ) );
+
+		echo '<header class="analytic-suite-header">';
+		echo '<div>';
+		echo '<h1>' . esc_html__( 'Paramètres Analytics', 'analytic-suite' ) . '</h1>';
+		echo '<p>' . esc_html__( 'Configuration des intégrations et des endpoints de synchronisation BigQuery.', 'analytic-suite' ) . '</p>';
+		echo '</div>';
+		echo '<div class="analytic-suite-header-meta">';
+		echo '<span>' . esc_html( $badge ) . '</span>';
+		echo '<strong>' . esc_html( sprintf( __( 'Version %s', 'analytic-suite' ), ANALYTIC_SUITE_VERSION ) ) . '</strong>';
+		echo '</div>';
+		echo '</header>';
+	}
 }
