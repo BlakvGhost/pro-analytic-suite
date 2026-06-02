@@ -40,8 +40,56 @@ class Analytic_Suite_Admin {
 
 		echo '<div class="wrap analytic-suite">';
 		$this->render_page_header();
+		$this->render_site_identity_settings();
 		$this->render_status_panel();
 		$this->render_ga_settings();
+		echo '</div>';
+	}
+
+	// -------------------------------------------------------------------------
+	// Site identity
+	// -------------------------------------------------------------------------
+
+	/**
+	 * Renders and saves the site identity settings (site_id for multi-site BigQuery).
+	 */
+	private function render_site_identity_settings() {
+		if ( isset( $_POST['analytic_suite_save_identity'] ) && check_admin_referer( 'analytic_suite_identity_settings' ) ) {
+			$site_id   = sanitize_key( wp_unslash( $_POST['analytic_suite_site_id'] ?? '' ) );
+			$site_name = sanitize_text_field( wp_unslash( $_POST['analytic_suite_site_name'] ?? '' ) );
+
+			update_option( 'analytic_suite_site_id', $site_id );
+			update_option( 'analytic_suite_site_name', $site_name );
+
+			echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__( 'Identité du site enregistrée.', 'analytic-suite' ) . '</p></div>';
+		}
+
+		$current_id   = get_option( 'analytic_suite_site_id', '' );
+		$current_name = get_option( 'analytic_suite_site_name', get_bloginfo( 'name' ) );
+
+		echo '<div class="analytic-suite-panel">';
+		echo '<h2>' . esc_html__( 'Identité du site', 'analytic-suite' ) . '</h2>';
+		echo '<p>' . esc_html__( 'Ces valeurs sont injectées dans chaque réponse API (champ site_id) pour permettre à n8n d\'agréger plusieurs sites dans BigQuery.', 'analytic-suite' ) . '</p>';
+
+		echo '<form method="post">';
+		wp_nonce_field( 'analytic_suite_identity_settings' );
+		echo '<table class="widefat"><tbody>';
+
+		echo '<tr><th>' . esc_html__( 'Site ID', 'analytic-suite' ) . '</th>';
+		echo '<td><input type="text" name="analytic_suite_site_id" value="' . esc_attr( $current_id ) . '" class="regular-text" placeholder="entourage">';
+		echo '<p class="description">' . esc_html__( 'Identifiant court, unique, sans espaces ni accents (ex : entourage, etrelabs, site-paris). Utilisé comme colonne site_id dans BigQuery.', 'analytic-suite' ) . '</p></td></tr>';
+
+		echo '<tr><th>' . esc_html__( 'Nom du site', 'analytic-suite' ) . '</th>';
+		echo '<td><input type="text" name="analytic_suite_site_name" value="' . esc_attr( $current_name ) . '" class="regular-text" placeholder="Entourage">';
+		echo '<p class="description">' . esc_html__( 'Nom lisible du site, inclus dans les réponses API pour faciliter le débogage.', 'analytic-suite' ) . '</p></td></tr>';
+
+		echo '<tr><th>' . esc_html__( 'URL du site', 'analytic-suite' ) . '</th>';
+		echo '<td><code>' . esc_html( get_bloginfo( 'url' ) ) . '</code>';
+		echo '<p class="description">' . esc_html__( 'Injectée automatiquement dans chaque réponse API (site_url), non modifiable.', 'analytic-suite' ) . '</p></td></tr>';
+
+		echo '</tbody></table>';
+		submit_button( __( 'Enregistrer l\'identité', 'analytic-suite' ), 'primary', 'analytic_suite_save_identity', false );
+		echo '</form>';
 		echo '</div>';
 	}
 

@@ -139,7 +139,13 @@ class Analytic_Suite_REST_Controller {
 	public function get_dashboard( $request ) {
 		$filters = $this->dashboard_service->get_filters_from_request( $request->get_params() );
 		$data    = $this->dashboard_service->get_dashboard_data( $filters );
-		return rest_ensure_response( array( 'filters' => $filters, 'data' => $data ) );
+
+		return rest_ensure_response( array(
+			'site_id'  => $this->get_site_id(),
+			'site_url' => get_bloginfo( 'url' ),
+			'filters'  => $filters,
+			'data'     => $data,
+		) );
 	}
 
 	/**
@@ -151,7 +157,13 @@ class Analytic_Suite_REST_Controller {
 	public function get_summary( $request ) {
 		$filters = $this->dashboard_service->get_filters_from_request( $request->get_params() );
 		$data    = $this->dashboard_service->get_dashboard_data( $filters );
-		return rest_ensure_response( array( 'filters' => $filters, 'summary' => $data['summary'] ) );
+
+		return rest_ensure_response( array(
+			'site_id'  => $this->get_site_id(),
+			'site_url' => get_bloginfo( 'url' ),
+			'filters'  => $filters,
+			'summary'  => $data['summary'],
+		) );
 	}
 
 	/**
@@ -163,7 +175,13 @@ class Analytic_Suite_REST_Controller {
 	public function get_bookings( $request ) {
 		$filters = $this->dashboard_service->get_filters_from_request( $request->get_params() );
 		$data    = $this->dashboard_service->get_dashboard_data( $filters );
-		return rest_ensure_response( array( 'filters' => $filters, 'bookings' => $data['bookings'] ) );
+
+		return rest_ensure_response( array(
+			'site_id'  => $this->get_site_id(),
+			'site_url' => get_bloginfo( 'url' ),
+			'filters'  => $filters,
+			'bookings' => $data['bookings'],
+		) );
 	}
 
 	/**
@@ -175,7 +193,13 @@ class Analytic_Suite_REST_Controller {
 	public function get_orders( $request ) {
 		$filters = $this->dashboard_service->get_filters_from_request( $request->get_params() );
 		$data    = $this->dashboard_service->get_dashboard_data( $filters );
-		return rest_ensure_response( array( 'filters' => $filters, 'orders' => $data['orders'] ) );
+
+		return rest_ensure_response( array(
+			'site_id'  => $this->get_site_id(),
+			'site_url' => get_bloginfo( 'url' ),
+			'filters'  => $filters,
+			'orders'   => $data['orders'],
+		) );
 	}
 
 	/**
@@ -187,7 +211,13 @@ class Analytic_Suite_REST_Controller {
 	public function get_contents( $request ) {
 		$filters = $this->dashboard_service->get_filters_from_request( $request->get_params() );
 		$data    = $this->dashboard_service->get_dashboard_data( $filters );
-		return rest_ensure_response( array( 'filters' => $filters, 'contents' => $data['contents'] ) );
+
+		return rest_ensure_response( array(
+			'site_id'  => $this->get_site_id(),
+			'site_url' => get_bloginfo( 'url' ),
+			'filters'  => $filters,
+			'contents' => $data['contents'],
+		) );
 	}
 
 	/**
@@ -198,8 +228,10 @@ class Analytic_Suite_REST_Controller {
 	 */
 	public function get_filter_options_response( $request ) {
 		return rest_ensure_response( array(
-			'filters' => $this->dashboard_service->get_filters_from_request( $request->get_params() ),
-			'options' => $this->dashboard_service->get_filter_options(),
+			'site_id'  => $this->get_site_id(),
+			'site_url' => get_bloginfo( 'url' ),
+			'filters'  => $this->dashboard_service->get_filters_from_request( $request->get_params() ),
+			'options'  => $this->dashboard_service->get_filter_options(),
 		) );
 	}
 
@@ -294,6 +326,9 @@ class Analytic_Suite_REST_Controller {
 		$lb_exists  = $this->table_exists( 'user_livres' );
 
 		return rest_ensure_response( array(
+			'site_id'        => $this->get_site_id(),
+			'site_name'      => get_option( 'analytic_suite_site_name', get_bloginfo( 'name' ) ),
+			'site_url'       => get_bloginfo( 'url' ),
 			'plugin_version' => ANALYTIC_SUITE_VERSION,
 			'generated_at'   => gmdate( 'c' ),
 			'last_sync'      => get_option( 'analytic_suite_last_sync', null ),
@@ -367,12 +402,23 @@ class Analytic_Suite_REST_Controller {
 	 * @return WP_REST_Response
 	 */
 	private function paginated_response( $result, $filters, $source ) {
+		$site_id     = $this->get_site_id();
 		$total       = (int) $result['total'];
 		$per_page    = (int) $filters['per_page'];
 		$total_pages = $per_page > 0 ? (int) ceil( $total / $per_page ) : 1;
 
+		// Inject site_id as the first field of every row so BigQuery can partition by site.
+		$rows = array_map(
+			function ( $row ) use ( $site_id ) {
+				return array_merge( array( 'site_id' => $site_id ), $row );
+			},
+			$result['rows']
+		);
+
 		return rest_ensure_response( array(
 			'meta' => array(
+				'site_id'      => $site_id,
+				'site_url'     => get_bloginfo( 'url' ),
 				'total'        => $total,
 				'page'         => (int) $filters['page'],
 				'per_page'     => $per_page,
@@ -380,8 +426,23 @@ class Analytic_Suite_REST_Controller {
 				'generated_at' => gmdate( 'c' ),
 				'source'       => $source,
 			),
-			'rows' => $result['rows'],
+			'rows' => $rows,
 		) );
+	}
+
+	/**
+	 * Returns the configured site identifier, falling back to a sanitized site name.
+	 *
+	 * @return string
+	 */
+	private function get_site_id() {
+		$site_id = get_option( 'analytic_suite_site_id', '' );
+
+		if ( '' !== $site_id ) {
+			return $site_id;
+		}
+
+		return sanitize_title( get_bloginfo( 'name' ) );
 	}
 
 	/**
