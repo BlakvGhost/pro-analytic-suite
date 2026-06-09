@@ -38,6 +38,7 @@ class Analytic_Suite {
         add_action( 'admin_post_analytic_suite_export_excel', array( $this, 'export_excel' ) );
         add_action( 'admin_post_analytic_suite_export_pdf', array( $this, 'export_pdf' ) );
         add_action( 'analytic_suite_daily_sync', array( $this, 'run_daily_sync' ) );
+        add_action( 'template_redirect', array( $this, 'handle_public_auth_form' ) );
         add_filter( 'plugin_action_links_' . plugin_basename( ANALYTIC_SUITE_FILE ), array( $this, 'add_plugin_action_links' ) );
         add_shortcode( 'analytics_public', array( $this, 'render_public_analytics' ) );
     }
@@ -291,12 +292,128 @@ class Analytic_Suite {
     }
 
     /**
+     * Processes the public analytics password form (fires on template_redirect).
+     */
+    public function handle_public_auth_form() {
+        if ( empty( $_POST['analytic_suite_pub_auth_action'] ) ) {
+            return;
+        }
+
+        if ( ! wp_verify_nonce( sanitize_key( wp_unslash( $_POST['_wpnonce'] ?? '' ) ), 'analytic_suite_pub_auth' ) ) {
+            wp_die( esc_html__( 'Erreur de sécurité.', 'analytic-suite' ) );
+        }
+
+        $password_hash = get_option( 'analytic_suite_public_password', '' );
+        if ( empty( $password_hash ) ) {
+            return;
+        }
+
+        $redirect  = esc_url_raw( wp_unslash( $_POST['analytic_suite_pub_redirect'] ?? '' ) );
+        $redirect  = wp_validate_redirect( $redirect, home_url() );
+        $submitted = wp_unslash( $_POST['analytic_suite_pub_password'] ?? '' );
+
+        if ( wp_check_password( $submitted, $password_hash ) ) {
+            setcookie(
+                'analytic_suite_pub_auth',
+                $this->get_public_auth_token(),
+                time() + 30 * DAY_IN_SECONDS,
+                COOKIEPATH,
+                COOKIE_DOMAIN,
+                is_ssl(),
+                true
+            );
+            wp_redirect( remove_query_arg( 'as_auth_failed', $redirect ) );
+            exit;
+        }
+
+        wp_redirect( add_query_arg( 'as_auth_failed', '1', $redirect ) );
+        exit;
+    }
+
+    /**
+     * Returns a deterministic signed token for the public auth cookie.
+     *
+     * @return string
+     */
+    private function get_public_auth_token() {
+        return hash_hmac( 'sha256', 'analytic_suite_pub_auth_v1', wp_salt( 'auth' ) );
+    }
+
+    /**
+     * Checks whether the current visitor holds a valid public auth cookie.
+     *
+     * @return bool
+     */
+    private function is_public_authenticated() {
+        $cookie = sanitize_text_field( wp_unslash( $_COOKIE['analytic_suite_pub_auth'] ?? '' ) );
+        return ! empty( $cookie ) && hash_equals( $this->get_public_auth_token(), $cookie );
+    }
+
+    /**
+     * Returns the HTML password gate shown when the page is protected.
+     *
+     * @return string
+     */
+    private function render_public_auth_form() {
+        $failed    = isset( $_GET['as_auth_failed'] );
+        $permalink = get_permalink() ?: home_url();
+
+        ob_start();
+        ?>
+        <div class="analytic-suite-public">
+            <div class="as-auth-gate">
+                <form class="as-auth-form" method="post">
+                    <?php wp_nonce_field( 'analytic_suite_pub_auth' ); ?>
+                    <input type="hidden" name="analytic_suite_pub_auth_action" value="1">
+                    <input type="hidden" name="analytic_suite_pub_redirect" value="<?php echo esc_url( $permalink ); ?>">
+
+                    <div class="as-auth-badge" aria-hidden="true">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                            <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                        </svg>
+                    </div>
+
+                    <span class="as-auth-kicker"><?php esc_html_e( 'Zone réservée', 'analytic-suite' ); ?></span>
+                    <h2><?php esc_html_e( 'Accès protégé', 'analytic-suite' ); ?></h2>
+                    <p><?php esc_html_e( 'Ce tableau de bord est accessible sur invitation. Saisissez le mot de passe pour continuer.', 'analytic-suite' ); ?></p>
+
+                    <?php if ( $failed ) : ?>
+                        <p class="as-auth-error">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+                            <?php esc_html_e( 'Mot de passe incorrect. Veuillez réessayer.', 'analytic-suite' ); ?>
+                        </p>
+                    <?php endif; ?>
+
+                    <div class="as-auth-field">
+                        <input
+                            type="password"
+                            name="analytic_suite_pub_password"
+                            placeholder="<?php esc_attr_e( 'Entrez le mot de passe…', 'analytic-suite' ); ?>"
+                            required
+                            autocomplete="current-password"
+                        >
+                        <button type="submit"><?php esc_html_e( 'Accéder au tableau de bord', 'analytic-suite' ); ?></button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        <?php
+        return ob_get_clean();
+    }
+
+    /**
      * Renders public analytics shortcode.
      *
      * @param array $atts Shortcode attributes.
      * @return string
      */
     public function render_public_analytics( $atts ) {
+        $password_hash = get_option( 'analytic_suite_public_password', '' );
+        if ( ! empty( $password_hash ) && ! $this->is_public_authenticated() ) {
+            return $this->render_public_auth_form();
+        }
+
         $content_repo = new Analytic_Suite_Content_Repository();
         $data         = $content_repo->get_public_demographics();
         $engagement_rate = $this->calculate_percentage( $data['completed_content'], $data['total_users'] );

@@ -802,6 +802,13 @@ class Analytic_Suite_Admin {
                 update_option( 'analytic_suite_ga_refresh_token', $refresh_token );
             }
 
+            $new_pw = sanitize_text_field( wp_unslash( $_POST['analytic_suite_public_password_new'] ?? '' ) );
+            if ( ! empty( $_POST['analytic_suite_public_password_remove'] ) ) {
+                delete_option( 'analytic_suite_public_password' );
+            } elseif ( ! empty( $new_pw ) ) {
+                update_option( 'analytic_suite_public_password', wp_hash_password( $new_pw ) );
+            }
+
             $this->save_appearance_settings( $_POST );
 
             $ga = new Analytic_Suite_Google_Analytics();
@@ -855,6 +862,7 @@ class Analytic_Suite_Admin {
         echo '</tbody></table>';
 
         $this->render_appearance_settings();
+        $this->render_public_access_settings();
 
         submit_button( __( 'Enregistrer', 'analytic-suite' ), 'primary', 'analytic_suite_save_ga', false );
         echo '</form></div>';
@@ -895,6 +903,39 @@ class Analytic_Suite_Admin {
         echo '<tr><th>' . esc_html__( 'Badge du header', 'analytic-suite' ) . '</th>';
         echo '<td><input type="text" name="analytic_suite_header_badge" value="' . esc_attr( get_option( 'analytic_suite_header_badge', 'Pro Analytics' ) ) . '" class="regular-text">';
         echo '<p class="description">' . esc_html__( 'Texte affiché dans le badge du header admin.', 'analytic-suite' ) . '</p></td></tr>';
+        echo '</tbody></table>';
+        echo '</div>';
+    }
+
+    /**
+     * Renders public shortcode password protection settings.
+     */
+    private function render_public_access_settings() {
+        $has_password = ! empty( get_option( 'analytic_suite_public_password', '' ) );
+
+        echo '<div class="analytic-suite-settings-section">';
+        echo '<h2>' . esc_html__( 'Accès au shortcode public', 'analytic-suite' ) . '</h2>';
+        echo '<table class="widefat"><tbody>';
+
+        echo '<tr><th>' . esc_html__( 'Protection actuelle', 'analytic-suite' ) . '</th><td>';
+        if ( $has_password ) {
+            echo '<span style="color:#0f766e;font-weight:700;">&#10003; ' . esc_html__( 'Mot de passe défini', 'analytic-suite' ) . '</span>';
+        } else {
+            echo '<span style="color:#6b7280;">' . esc_html__( 'Aucune protection — accès libre', 'analytic-suite' ) . '</span>';
+        }
+        echo '</td></tr>';
+
+        echo '<tr><th>' . esc_html__( 'Nouveau mot de passe', 'analytic-suite' ) . '</th>';
+        echo '<td><input type="password" name="analytic_suite_public_password_new" value="" class="regular-text" autocomplete="new-password">';
+        echo '<p class="description">' . esc_html__( 'Laisser vide pour conserver le mot de passe actuel. Le cookie d\'authentification expire après 30 jours.', 'analytic-suite' ) . '</p></td></tr>';
+
+        if ( $has_password ) {
+            echo '<tr><th></th><td><label>';
+            echo '<input type="checkbox" name="analytic_suite_public_password_remove" value="1"> ';
+            echo esc_html__( 'Supprimer la protection par mot de passe', 'analytic-suite' );
+            echo '</label></td></tr>';
+        }
+
         echo '</tbody></table>';
         echo '</div>';
     }
