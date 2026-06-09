@@ -432,7 +432,7 @@ class Analytic_Suite {
             <section class="as-public-hero">
                 <div class="as-public-hero-copy">
                     <span class="as-public-kicker"><?php esc_html_e( 'Analytics publics', 'analytic-suite' ); ?></span>
-                    <h2><?php esc_html_e( 'Tableau de bord de la communauté', 'analytic-suite' ); ?></h2>
+                    <h2><?php esc_html_e( 'Tableau de bord', 'analytic-suite' ); ?></h2>
                     <p><?php esc_html_e( 'Une lecture claire des profils, de l’engagement et de la progression des utilisateurs.', 'analytic-suite' ); ?></p>
                 </div>
                 <div class="as-public-hero-meter">
