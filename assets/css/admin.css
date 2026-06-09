@@ -995,11 +995,21 @@
     margin-bottom: 18px;
 }
 
+.analytic-suite-public .as-public-charts--featured {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin-bottom: 16px;
+}
+
 .analytic-suite-public .as-public-chart-panel {
     background: var(--as-public-surface);
     border-color: var(--as-public-border);
     border-radius: 12px;
     box-shadow: 0 16px 42px rgba(18, 32, 28, 0.09);
+}
+
+.analytic-suite-public .as-public-charts--featured .as-public-chart-panel {
+    border-top: 3px solid var(--as-public-accent, #d69a3a);
+    box-shadow: 0 20px 56px rgba(18, 32, 28, 0.13);
 }
 
 .analytic-suite-public .as-public-chart-panel h3 {
@@ -1018,12 +1028,23 @@
     padding: 15px 16px;
 }
 
+.analytic-suite-public .as-public-charts--featured .as-public-chart-panel h3 {
+    font-size: 15px;
+    min-height: 58px;
+    padding: 17px 18px;
+}
+
 .analytic-suite-public .as-public-chart-panel h3::after {
     background: var(--as-public-accent);
     border-radius: 999px;
     content: "";
     height: 8px;
     width: 8px;
+}
+
+.analytic-suite-public .as-public-charts--featured .as-public-chart-panel h3::after {
+    height: 10px;
+    width: 10px;
 }
 
 .analytic-suite-public .as-public-sections {
@@ -1093,6 +1114,15 @@
 
 .analytic-suite-public .analytic-suite-chart {
     height: 284px;
+}
+
+.analytic-suite-public .as-public-charts--featured .analytic-suite-chart-wrap {
+    min-height: 360px;
+    padding: 22px 18px;
+}
+
+.analytic-suite-public .as-public-charts--featured .analytic-suite-chart {
+    height: 360px;
 }
 
 .analytic-suite-public .analytic-suite-chart-fill {
