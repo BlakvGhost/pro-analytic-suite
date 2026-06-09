@@ -729,8 +729,9 @@ class Analytic_Suite_Google_Analytics {
      * @return string
      */
     private function format_duration( $seconds ) {
+        $seconds = (int) $seconds;
         $minutes = floor( $seconds / 60 );
-        $secs    = floor( $seconds % 60 );
+        $secs    = $seconds % 60;
 
         if ( $minutes > 0 ) {
             return $minutes . 'm ' . $secs . 's';
