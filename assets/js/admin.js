@@ -44,6 +44,14 @@
         }
     }
 
+    function formatPct(value, total) {
+        var pct = total > 0 ? value / total * 100 : 0;
+        return new Intl.NumberFormat(document.documentElement.lang || 'fr-FR', {
+            minimumFractionDigits: 1,
+            maximumFractionDigits: 1
+        }).format(pct) + ' %';
+    }
+
     function showTooltip(event, point) {
         var tooltip = getTooltip();
         var title = document.createElement('strong');
@@ -51,7 +59,9 @@
 
         tooltip.textContent = '';
         title.textContent = point.label;
-        value.textContent = numberFormat(point.value);
+        value.textContent = point.total != null
+            ? formatPct(point.value, point.total)
+            : numberFormat(point.value);
         tooltip.appendChild(title);
         tooltip.appendChild(value);
 
@@ -114,6 +124,7 @@
     function drawBar(canvas, points) {
         var chart = setupCanvas(canvas);
         var ctx = chart.ctx;
+        var totalValue = points.reduce(function (sum, p) { return sum + p.value; }, 0);
         var max = Math.max.apply(null, points.map(function (point) { return point.value; })) || 1;
         var left = 34;
         var bottom = 40;
@@ -153,7 +164,7 @@
                 y: y,
                 width: barWidth,
                 height: height,
-                point: point
+                point: { label: point.label, value: point.value, meta: point.meta, total: totalValue }
             });
         });
 
@@ -198,7 +209,7 @@
                 centerY: centerY,
                 inner: radius * 0.56,
                 outer: radius,
-                point: point
+                point: { label: point.label, value: point.value, meta: point.meta, total: totalValue }
             });
 
             start = end;
@@ -222,7 +233,7 @@
             ctx.fillStyle = '#17211d';
             ctx.font = '700 12px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
             ctx.textAlign = 'left';
-            drawLabel(ctx, point.label + ' (' + numberFormat(point.value) + ')', legendX + 16, legendY, chart.width - legendX - 22);
+            drawLabel(ctx, point.label + ' (' + formatPct(point.value, totalValue) + ')', legendX + 16, legendY, chart.width - legendX - 22);
         });
 
         canvas._analyticSuiteHitAreas = hitAreas;
@@ -231,6 +242,7 @@
     function drawLine(canvas, points) {
         var chart = setupCanvas(canvas);
         var ctx = chart.ctx;
+        var totalValue = points.reduce(function (sum, p) { return sum + p.value; }, 0);
         var max = Math.max.apply(null, points.map(function (point) { return point.value; })) || 1;
         var left = 38;
         var right = 18;
@@ -285,7 +297,7 @@
                 y: y - 10,
                 width: 20,
                 height: 20,
-                point: point
+                point: { label: point.label, value: point.value, meta: point.meta, total: totalValue }
             });
         });
 
