@@ -414,13 +414,15 @@ class Analytic_Suite {
             return $this->render_public_auth_form();
         }
 
+        $filters = $this->get_public_filters();
+
         $content_repo = new Analytic_Suite_Content_Repository();
-        $data         = $content_repo->get_public_demographics();
+        $data         = $content_repo->get_public_demographics( $filters['date_from'], $filters['date_to'] );
         $engagement_rate = $this->calculate_percentage( $data['completed_content'], $data['total_users'] );
         $login_rate      = $this->calculate_percentage( $data['logged_in_users'], $data['total_users'] );
         $access_rate     = $this->calculate_percentage( $data['disability_count'], $data['total_users'] );
-        $ga_data            = $this->get_public_ga_data();
-        $registered_demos     = $content_repo->get_registered_user_demographics();
+        $ga_data            = $this->get_public_ga_data( $filters );
+        $registered_demos     = $content_repo->get_registered_user_demographics( $filters['date_from'], $filters['date_to'] );
         $elementor_total      = $registered_demos['total_users'];
         $civility_breakdown   = $registered_demos['civility_breakdown'];
         $experience_breakdown = $registered_demos['experience_breakdown'];
@@ -430,16 +432,18 @@ class Analytic_Suite {
             ? $registered_demos['location_breakdown']
             : ( $ga_data['demographics']['countries'] ?? array() );
         $city_breakdown       = $ga_data['demographics']['cities'] ?? array();
-        $top_masterclasses    = $content_repo->get_top_masterclasses_from_elementor();
+        $top_masterclasses    = $content_repo->get_top_masterclasses_from_elementor( 5, $filters['date_from'], $filters['date_to'] );
 
         ob_start();
         ?>
         <div class="analytic-suite-public">
+            <?php echo $this->render_public_filter_bar( $filters ); // phpcs:ignore WordPress.Security.EscapeOutput ?>
+
             <section class="as-public-hero">
                 <div class="as-public-hero-copy">
                     <span class="as-public-kicker"><?php esc_html_e( 'Analytics publics', 'analytic-suite' ); ?></span>
                     <h2><?php esc_html_e( 'Tableau de bord', 'analytic-suite' ); ?></h2>
-                    <p><?php esc_html_e( 'Une lecture claire des profils, de l’engagement et de la progression des utilisateurs.', 'analytic-suite' ); ?></p>
+                    <p><?php esc_html_e( "Une lecture claire des profils, de l'engagement et de la progression des utilisateurs.", 'analytic-suite' ); ?></p>
                 </div>
                 <div class="as-public-hero-meter">
                     <span><?php esc_html_e( 'Engagement contenu', 'analytic-suite' ); ?></span>
@@ -460,7 +464,7 @@ class Analytic_Suite {
                         <h3><?php esc_html_e( 'Performance des contenus', 'analytic-suite' ); ?></h3>
                     </div>
                     <div class="as-public-grid">
-                        <?php $this->render_public_stat_card( __( 'Visiteurs actifs', 'analytic-suite' ), $ga_data['summary']['active_users'], __( '30 derniers jours', 'analytic-suite' ) ); ?>
+                        <?php $this->render_public_stat_card( __( 'Visiteurs actifs', 'analytic-suite' ), $ga_data['summary']['active_users'], $filters['period_label'] ); ?>
                         <?php $this->render_public_stat_card( __( 'Sessions', 'analytic-suite' ), $ga_data['summary']['sessions'], __( 'Trafic', 'analytic-suite' ) ); ?>
                         <?php $this->render_public_stat_card( __( 'Pages vues', 'analytic-suite' ), $ga_data['summary']['page_views'], __( 'Vues', 'analytic-suite' ) ); ?>
                         <?php $this->render_public_stat_card( __( 'Nouveaux visiteurs', 'analytic-suite' ), $ga_data['summary']['new_users'], $ga_data['summary']['avg_duration'] ); ?>
@@ -583,7 +587,121 @@ class Analytic_Suite {
      *
      * @return array
      */
-    private function get_public_ga_data() {
+    /**
+     * Reads and validates public filter params from the query string.
+     *
+     * @return array { period, date_from, date_to, period_label }
+     */
+    private function get_public_filters() {
+        $allowed = array( 'all', '7-days', '30-days', 'year', 'custom' );
+        // phpcs:ignore WordPress.Security.NonceVerification
+        $period = sanitize_key( $_GET['as_period'] ?? 'all' );
+
+        if ( ! in_array( $period, $allowed, true ) ) {
+            $period = 'all';
+        }
+
+        $today     = current_time( 'Y-m-d' );
+        $date_from = '';
+        $date_to   = '';
+
+        switch ( $period ) {
+            case '7-days':
+                $date_from    = gmdate( 'Y-m-d', strtotime( '-7 days', strtotime( $today ) ) );
+                $date_to      = $today;
+                $period_label = __( '7 derniers jours', 'analytic-suite' );
+                break;
+            case '30-days':
+                $date_from    = gmdate( 'Y-m-d', strtotime( '-30 days', strtotime( $today ) ) );
+                $date_to      = $today;
+                $period_label = __( '30 derniers jours', 'analytic-suite' );
+                break;
+            case 'year':
+                $date_from    = gmdate( 'Y-01-01', strtotime( $today ) );
+                $date_to      = $today;
+                $period_label = __( 'Cette année', 'analytic-suite' );
+                break;
+            case 'custom':
+                // phpcs:disable WordPress.Security.NonceVerification
+                $df = sanitize_text_field( wp_unslash( $_GET['as_date_from'] ?? '' ) );
+                $dt = sanitize_text_field( wp_unslash( $_GET['as_date_to'] ?? '' ) );
+                // phpcs:enable
+                $date_from    = preg_match( '/^\d{4}-\d{2}-\d{2}$/', $df ) ? $df : '';
+                $date_to      = preg_match( '/^\d{4}-\d{2}-\d{2}$/', $dt ) ? $dt : $today;
+                $period_label = $date_from
+                    ? sprintf( '%s – %s', $date_from, $date_to )
+                    : __( 'Personnalisé', 'analytic-suite' );
+                break;
+            default:
+                $period_label = __( 'Toutes les données', 'analytic-suite' );
+                break;
+        }
+
+        return array(
+            'period'       => $period,
+            'date_from'    => $date_from,
+            'date_to'      => $date_to,
+            'period_label' => $period_label,
+        );
+    }
+
+    /**
+     * Renders the date-filter bar for the public shortcode.
+     *
+     * @param array $filters Filters from get_public_filters().
+     * @return string HTML.
+     */
+    private function render_public_filter_bar( array $filters ) {
+        $base    = get_permalink() ?: home_url( '/' );
+        $period  = $filters['period'];
+        $periods = array(
+            'all'     => __( 'Tout', 'analytic-suite' ),
+            '7-days'  => __( '7 jours', 'analytic-suite' ),
+            '30-days' => __( '30 jours', 'analytic-suite' ),
+            'year'    => __( 'Cette année', 'analytic-suite' ),
+        );
+        $today = current_time( 'Y-m-d' );
+
+        ob_start();
+        ?>
+        <div class="as-public-filter-bar">
+            <nav class="as-public-filter-periods" aria-label="<?php esc_attr_e( 'Filtrer par période', 'analytic-suite' ); ?>">
+                <?php foreach ( $periods as $key => $label ) : ?>
+                    <a href="<?php echo esc_url( add_query_arg( 'as_period', $key, $base ) ); ?>"
+                       class="as-filter-pill<?php echo $period === $key ? ' is-active' : ''; ?>">
+                        <?php echo esc_html( $label ); ?>
+                    </a>
+                <?php endforeach; ?>
+                <button type="button"
+                        class="as-filter-pill as-filter-custom-toggle<?php echo 'custom' === $period ? ' is-active' : ''; ?>"
+                        aria-expanded="<?php echo 'custom' === $period ? 'true' : 'false'; ?>"
+                        aria-controls="as-public-filter-custom">
+                    <?php esc_html_e( 'Personnalisé', 'analytic-suite' ); ?>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                </button>
+            </nav>
+            <form id="as-public-filter-custom"
+                  class="as-public-filter-custom<?php echo 'custom' === $period ? ' is-open' : ''; ?>"
+                  method="get"
+                  action="<?php echo esc_url( $base ); ?>">
+                <input type="hidden" name="as_period" value="custom">
+                <label class="as-filter-label" for="as_date_from"><?php esc_html_e( 'Du', 'analytic-suite' ); ?></label>
+                <input type="date" id="as_date_from" name="as_date_from"
+                       value="<?php echo esc_attr( $filters['date_from'] ); ?>"
+                       max="<?php echo esc_attr( $today ); ?>">
+                <span class="as-filter-sep" aria-hidden="true">→</span>
+                <label class="as-filter-label" for="as_date_to"><?php esc_html_e( 'Au', 'analytic-suite' ); ?></label>
+                <input type="date" id="as_date_to" name="as_date_to"
+                       value="<?php echo esc_attr( $filters['date_to'] ?: $today ); ?>"
+                       max="<?php echo esc_attr( $today ); ?>">
+                <button type="submit" class="as-filter-apply"><?php esc_html_e( 'Appliquer', 'analytic-suite' ); ?></button>
+            </form>
+        </div>
+        <?php
+        return ob_get_clean();
+    }
+
+    private function get_public_ga_data( array $pub_filters = array() ) {
         $ga = new Analytic_Suite_Google_Analytics();
 
         if ( ! $ga->is_configured() ) {
@@ -595,10 +713,20 @@ class Analytic_Suite {
             );
         }
 
+        $period = $pub_filters['period'] ?? '30-days';
+        if ( 'all' === $period ) {
+            $period = 'year';
+        }
+
         $filters = array(
-            'period'     => '30-days',
+            'period'     => $period,
             'page_paths' => $this->get_public_content_paths(),
         );
+
+        if ( 'custom' === $period ) {
+            $filters['date_from'] = $pub_filters['date_from'] ?? '';
+            $filters['date_to']   = $pub_filters['date_to'] ?? current_time( 'Y-m-d' );
+        }
 
         return array(
             'configured'   => true,

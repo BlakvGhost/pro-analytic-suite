@@ -377,4 +377,19 @@
     }
 
     initCharts();
+
+    // Public filter bar — custom date toggle
+    var filterToggle = document.querySelector('.as-filter-custom-toggle');
+    var filterForm   = document.getElementById('as-public-filter-custom');
+
+    if (filterToggle && filterForm) {
+        filterToggle.addEventListener('click', function () {
+            var isOpen = filterForm.classList.toggle('is-open');
+            filterToggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+            if (isOpen) {
+                var firstInput = filterForm.querySelector('input[type="date"]');
+                if (firstInput) { firstInput.focus(); }
+            }
+        });
+    }
 })();

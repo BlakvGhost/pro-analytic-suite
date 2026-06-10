@@ -1182,6 +1182,124 @@
     visibility: hidden!important;
 }
 
+/* ── Public filter bar ────────────────────────────────────────── */
+.analytic-suite-public .as-public-filter-bar {
+    align-items: center;
+    background: var(--as-public-surface, #fff);
+    border: 1px solid var(--as-public-border, rgba(22,47,39,.12));
+    border-radius: 12px;
+    box-shadow: 0 4px 16px rgba(18, 32, 28, 0.06);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 24px;
+    padding: 12px 16px;
+}
+
+.analytic-suite-public .as-public-filter-periods {
+    align-items: center;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.analytic-suite-public .as-filter-pill {
+    align-items: center;
+    background: transparent;
+    border: 1.5px solid var(--as-public-border, rgba(22,47,39,.14));
+    border-radius: 999px;
+    color: var(--as-public-muted, #66746d);
+    cursor: pointer;
+    display: inline-flex;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 700;
+    gap: 5px;
+    line-height: 1;
+    padding: 7px 14px;
+    text-decoration: none;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.analytic-suite-public .as-filter-pill:hover {
+    background: var(--as-public-primary, #0f766e);
+    border-color: var(--as-public-primary, #0f766e);
+    color: #fff;
+}
+
+.analytic-suite-public .as-filter-pill.is-active {
+    background: var(--as-public-primary, #0f766e);
+    border-color: var(--as-public-primary, #0f766e);
+    color: #fff;
+}
+
+.analytic-suite-public .as-filter-custom-toggle svg {
+    flex-shrink: 0;
+    transition: transform 0.2s;
+}
+
+.analytic-suite-public .as-filter-custom-toggle[aria-expanded="true"] svg {
+    transform: rotate(180deg);
+}
+
+.analytic-suite-public .as-public-filter-custom {
+    align-items: center;
+    display: none;
+    flex-wrap: wrap;
+    gap: 8px;
+    width: 100%;
+}
+
+.analytic-suite-public .as-public-filter-custom.is-open {
+    display: flex;
+}
+
+.analytic-suite-public .as-filter-label {
+    color: var(--as-public-muted, #66746d);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+}
+
+.analytic-suite-public .as-public-filter-custom input[type="date"] {
+    background: var(--as-public-bg, #f8faf9);
+    border: 1.5px solid var(--as-public-border, rgba(22,47,39,.14));
+    border-radius: 8px;
+    color: var(--as-public-ink, #17211d);
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 7px 10px;
+}
+
+.analytic-suite-public .as-public-filter-custom input[type="date"]:focus {
+    border-color: var(--as-public-primary, #0f766e);
+    outline: none;
+}
+
+.analytic-suite-public .as-filter-sep {
+    color: var(--as-public-muted, #66746d);
+    font-size: 14px;
+}
+
+.analytic-suite-public .as-filter-apply {
+    background: var(--as-public-accent, #d69a3a);
+    border: 0;
+    border-radius: 8px;
+    color: #fff;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 800;
+    padding: 8px 18px;
+    transition: filter 0.15s;
+}
+
+.analytic-suite-public .as-filter-apply:hover {
+    filter: brightness(1.08);
+}
+
 @media (max-width: 900px) {
     .analytic-suite-public {
         padding: 14px;

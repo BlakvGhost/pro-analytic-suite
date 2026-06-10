@@ -329,7 +329,7 @@ class Analytic_Suite_Content_Repository {
      *   location_breakdown: array,
      * }
      */
-    public function get_registered_user_demographics() {
+    public function get_registered_user_demographics( $date_from = '', $date_to = '' ) {
         if ( ! $this->elementor_tables_exist() ) {
             return array(
                 'total_users'          => 0,
@@ -344,12 +344,12 @@ class Analytic_Suite_Content_Repository {
         $forms = array( 'Form Register Masterclass', 'Form Livre Blanc' );
 
         return array(
-            'total_users'          => $this->get_elementor_unique_users_count( $forms ),
-            'civility_breakdown'   => $this->get_elementor_field_breakdown( 'civility', $forms ),
-            'experience_breakdown' => $this->get_elementor_field_breakdown( 'field_experience', $forms ),
-            'industry_breakdown'   => $this->get_elementor_field_breakdown( 'sector', $forms ),
-            'support_breakdown'    => $this->get_elementor_field_breakdown( 'advice_type', $forms ),
-            'location_breakdown'   => $this->get_elementor_field_breakdown( 'localisation', $forms ),
+            'total_users'          => $this->get_elementor_unique_users_count( $forms, $date_from, $date_to ),
+            'civility_breakdown'   => $this->get_elementor_field_breakdown( 'civility', $forms, $date_from, $date_to ),
+            'experience_breakdown' => $this->get_elementor_field_breakdown( 'field_experience', $forms, $date_from, $date_to ),
+            'industry_breakdown'   => $this->get_elementor_field_breakdown( 'sector', $forms, $date_from, $date_to ),
+            'support_breakdown'    => $this->get_elementor_field_breakdown( 'advice_type', $forms, $date_from, $date_to ),
+            'location_breakdown'   => $this->get_elementor_field_breakdown( 'localisation', $forms, $date_from, $date_to ),
         );
     }
 
@@ -360,7 +360,7 @@ class Analytic_Suite_Content_Repository {
      * @param int $limit Number of results.
      * @return array label => count
      */
-    public function get_top_masterclasses_from_elementor( $limit = 5 ) {
+    public function get_top_masterclasses_from_elementor( $limit = 5, $date_from = '', $date_to = '' ) {
         if ( ! $this->elementor_tables_exist() ) {
             return array();
         }
@@ -369,6 +369,19 @@ class Analytic_Suite_Content_Repository {
         $sub = $wpdb->prefix . 'e_submissions';
         $val = $wpdb->prefix . 'e_submissions_values';
 
+        $date_sql  = '';
+        $date_args = array();
+        if ( ! empty( $date_from ) ) {
+            $date_sql  .= ' AND s.created_at >= %s';
+            $date_args[] = $date_from . ' 00:00:00';
+        }
+        if ( ! empty( $date_to ) ) {
+            $date_sql  .= ' AND s.created_at <= %s';
+            $date_args[] = $date_to . ' 23:59:59';
+        }
+
+        $args = array_merge( array( 'Form Register Masterclass' ), $date_args, array( $limit ) );
+
         $rows = $wpdb->get_results(
             $wpdb->prepare(
                 "SELECT sv.value AS origin_slug, COUNT(*) AS total
@@ -376,11 +389,11 @@ class Analytic_Suite_Content_Repository {
                  INNER JOIN {$val} sv ON sv.submission_id = s.id AND sv.key = 'origin'
                  WHERE s.form_name = %s
                    AND sv.value != ''
+                   {$date_sql}
                  GROUP BY sv.value
                  ORDER BY total DESC
                  LIMIT %d",
-                'Form Register Masterclass',
-                $limit
+                ...$args
             ),
             ARRAY_A
         );
@@ -417,11 +430,24 @@ class Analytic_Suite_Content_Repository {
      * @param array $form_names Form names to include.
      * @return int
      */
-    private function get_elementor_unique_users_count( array $form_names ) {
+    private function get_elementor_unique_users_count( array $form_names, $date_from = '', $date_to = '' ) {
         global $wpdb;
         $sub = $wpdb->prefix . 'e_submissions';
         $val = $wpdb->prefix . 'e_submissions_values';
         $ph  = implode( ',', array_fill( 0, count( $form_names ), '%s' ) );
+
+        $date_sql  = '';
+        $date_args = array();
+        if ( ! empty( $date_from ) ) {
+            $date_sql  .= ' AND s.created_at >= %s';
+            $date_args[] = $date_from . ' 00:00:00';
+        }
+        if ( ! empty( $date_to ) ) {
+            $date_sql  .= ' AND s.created_at <= %s';
+            $date_args[] = $date_to . ' 23:59:59';
+        }
+
+        $args = array_merge( $form_names, $date_args );
 
         return (int) $wpdb->get_var(
             $wpdb->prepare(
@@ -429,8 +455,9 @@ class Analytic_Suite_Content_Repository {
                  FROM {$sub} s
                  INNER JOIN {$val} sv ON sv.submission_id = s.id AND sv.key = 'your_email'
                  WHERE s.form_name IN ({$ph})
-                   AND sv.value != ''",
-                ...$form_names
+                   AND sv.value != ''
+                   {$date_sql}",
+                ...$args
             )
         );
     }
@@ -443,12 +470,24 @@ class Analytic_Suite_Content_Repository {
      * @param array  $form_names Form names to include.
      * @return array label => count
      */
-    private function get_elementor_field_breakdown( $field_key, array $form_names ) {
+    private function get_elementor_field_breakdown( $field_key, array $form_names, $date_from = '', $date_to = '' ) {
         global $wpdb;
         $sub  = $wpdb->prefix . 'e_submissions';
         $val  = $wpdb->prefix . 'e_submissions_values';
         $ph   = implode( ',', array_fill( 0, count( $form_names ), '%s' ) );
-        $args = array_merge( $form_names, array( $field_key ) );
+
+        $date_sql  = '';
+        $date_args = array();
+        if ( ! empty( $date_from ) ) {
+            $date_sql  .= ' AND s.created_at >= %s';
+            $date_args[] = $date_from . ' 00:00:00';
+        }
+        if ( ! empty( $date_to ) ) {
+            $date_sql  .= ' AND s.created_at <= %s';
+            $date_args[] = $date_to . ' 23:59:59';
+        }
+
+        $args = array_merge( $form_names, $date_args, array( $field_key ) );
 
         $rows = $wpdb->get_results(
             $wpdb->prepare(
@@ -460,6 +499,7 @@ class Analytic_Suite_Content_Repository {
                      INNER JOIN {$val} sv_e ON sv_e.submission_id = s.id AND sv_e.key = 'your_email'
                      WHERE s.form_name IN ({$ph})
                        AND sv_e.value != ''
+                       {$date_sql}
                      GROUP BY sv_e.value
                  )
                    AND sv.key = %s
@@ -511,7 +551,7 @@ class Analytic_Suite_Content_Repository {
      *
      * @return array
      */
-    public function get_public_demographics() {
+    public function get_public_demographics( $date_from = '', $date_to = '' ) {
         $users = get_users( array( 'fields' => 'ids' ) );
 
         $total_users         = count( $users );
@@ -520,7 +560,7 @@ class Analytic_Suite_Content_Repository {
         $location_breakdown  = $this->get_location_breakdown();
         $disability_count    = $this->get_disability_count();
         $logged_in_users     = $this->get_logged_in_users_count();
-        $completed_content   = $this->get_completed_content_users();
+        $completed_content   = $this->get_completed_content_users( $date_from, $date_to );
 
         return array(
             'total_users'        => $total_users,
@@ -661,19 +701,35 @@ class Analytic_Suite_Content_Repository {
      *
      * @return int
      */
-    private function get_completed_content_users() {
+    private function get_completed_content_users( $date_from = '', $date_to = '' ) {
         $masterclass_count = 0;
         $books_count       = 0;
 
         if ( $this->table_exists( 'user_masterclass' ) ) {
             global $wpdb;
-            $masterclass_count = (int) $wpdb->get_var( "SELECT COUNT(DISTINCT user_id) FROM {$wpdb->prefix}user_masterclass" );
-        }
+            $table     = $wpdb->prefix . 'user_masterclass';
+            $date_sql  = '';
+            $date_args = array();
+            if ( ! empty( $date_from ) ) {
+                $date_sql  .= ' AND created_at >= %s';
+                $date_args[] = $date_from . ' 00:00:00';
+            }
+            if ( ! empty( $date_to ) ) {
+                $date_sql  .= ' AND created_at <= %s';
+                $date_args[] = $date_to . ' 23:59:59';
+            }
 
-        // if ( $this->table_exists( 'user_livres' ) ) {
-        //     global $wpdb;
-        //     $books_count = (int) $wpdb->get_var( "SELECT COUNT(DISTINCT user_id) FROM {$wpdb->prefix}user_livres" );
-        // }
+            if ( ! empty( $date_args ) ) {
+                $masterclass_count = (int) $wpdb->get_var(
+                    $wpdb->prepare(
+                        "SELECT COUNT(DISTINCT user_id) FROM {$table} WHERE 1=1{$date_sql}",
+                        ...$date_args
+                    )
+                );
+            } else {
+                $masterclass_count = (int) $wpdb->get_var( "SELECT COUNT(DISTINCT user_id) FROM {$table}" );
+            }
+        }
 
         return $masterclass_count + $books_count;
     }
