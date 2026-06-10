@@ -316,11 +316,11 @@ class Analytic_Suite_Content_Repository {
     }
 
     /**
-     * Gets experience and gender breakdown for users registered to free content.
-     * Experience source : `field_experience` user meta (years of experience from Elementor form).
-     * Gender source     : `genders` user meta (Profile Builder select).
+     * Gets industry and support-type breakdown for users registered via Elementor forms.
+     * Industry source      : `industries` user meta (field `sector` in both masterclass & livre forms).
+     * Support-type source  : `type_support` user meta (field `advice_type` in both forms).
      *
-     * @return array { age_breakdown: array, gender_breakdown: array }
+     * @return array { industry_breakdown: array, support_breakdown: array }
      */
     public function get_registered_user_demographics() {
         global $wpdb;
@@ -329,18 +329,18 @@ class Analytic_Suite_Content_Repository {
 
         if ( empty( $user_ids ) ) {
             return array(
-                'age_breakdown'    => array(),
-                'gender_breakdown' => array(),
+                'industry_breakdown' => array(),
+                'support_breakdown'  => array(),
             );
         }
 
-        $ids_in = implode( ',', $user_ids );
+        $ids_in = implode( ',', array_map( 'intval', $user_ids ) );
 
-        // Experience breakdown — grouped by raw value of 'field_experience' user meta.
-        $exp_rows = $wpdb->get_results(
+        // Industry breakdown — `industries` user meta saved by both Elementor forms.
+        $industry_rows = $wpdb->get_results(
             "SELECT meta_value, COUNT(*) AS total
              FROM {$wpdb->usermeta}
-             WHERE meta_key = 'field_experience'
+             WHERE meta_key = 'industries'
              AND user_id IN ({$ids_in})
              AND meta_value != ''
              GROUP BY meta_value
@@ -348,16 +348,16 @@ class Analytic_Suite_Content_Repository {
             ARRAY_A
         );
 
-        $age_breakdown = array();
-        foreach ( $exp_rows as $row ) {
-            $age_breakdown[ (string) $row['meta_value'] ] = (int) $row['total'];
+        $industry_breakdown = array();
+        foreach ( $industry_rows as $row ) {
+            $industry_breakdown[ ucfirst( (string) $row['meta_value'] ) ] = (int) $row['total'];
         }
 
-        // Gender breakdown — 'genders' user meta (Profile Builder).
-        $gender_rows = $wpdb->get_results(
+        // Support-type breakdown — `type_support` user meta saved by both Elementor forms.
+        $support_rows = $wpdb->get_results(
             "SELECT meta_value, COUNT(*) AS total
              FROM {$wpdb->usermeta}
-             WHERE meta_key = 'genders'
+             WHERE meta_key = 'type_support'
              AND user_id IN ({$ids_in})
              AND meta_value != ''
              GROUP BY meta_value
@@ -365,14 +365,14 @@ class Analytic_Suite_Content_Repository {
             ARRAY_A
         );
 
-        $gender_breakdown = array();
-        foreach ( $gender_rows as $row ) {
-            $gender_breakdown[ ucfirst( (string) $row['meta_value'] ) ] = (int) $row['total'];
+        $support_breakdown = array();
+        foreach ( $support_rows as $row ) {
+            $support_breakdown[ ucfirst( (string) $row['meta_value'] ) ] = (int) $row['total'];
         }
 
         return array(
-            'age_breakdown'    => $age_breakdown,
-            'gender_breakdown' => $gender_breakdown,
+            'industry_breakdown' => $industry_breakdown,
+            'support_breakdown'  => $support_breakdown,
         );
     }
 

@@ -421,8 +421,8 @@ class Analytic_Suite {
         $access_rate     = $this->calculate_percentage( $data['disability_count'], $data['total_users'] );
         $ga_data            = $this->get_public_ga_data();
         $registered_demos   = $content_repo->get_registered_user_demographics();
-        $age_breakdown      = $registered_demos['age_breakdown'];
-        $sex_breakdown      = $registered_demos['gender_breakdown'];
+        $industry_breakdown = $registered_demos['industry_breakdown'];
+        $support_breakdown  = $registered_demos['support_breakdown'];
         $location_breakdown = $ga_data['demographics']['countries'] ?? array();
         $city_breakdown     = $ga_data['demographics']['cities'] ?? array();
 
@@ -472,12 +472,12 @@ class Analytic_Suite {
             <?php endif; ?>
 
             <div class="as-public-charts as-public-charts--featured">
-                <?php $this->render_public_chart( __( 'Répartition par sexe', 'analytic-suite' ), 'doughnut', $sex_breakdown ); ?>
+                <?php $this->render_public_chart( __( 'Type de support recherché', 'analytic-suite' ), 'doughnut', $support_breakdown ); ?>
                 <?php $this->render_public_chart( __( 'Localisation', 'analytic-suite' ), 'doughnut', $location_breakdown ); ?>
             </div>
 
             <div class="as-public-charts">
-                <?php $this->render_public_chart( __( 'Années d\'expérience', 'analytic-suite' ), 'bar', $age_breakdown ); ?>
+                <?php $this->render_public_chart( __( 'Secteurs d\'activité', 'analytic-suite' ), 'bar', $industry_breakdown ); ?>
                 <?php $this->render_public_chart( __( 'Villes', 'analytic-suite' ), 'bar', $city_breakdown ); ?>
             </div>
 
