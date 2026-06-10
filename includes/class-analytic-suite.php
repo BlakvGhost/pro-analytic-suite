@@ -479,7 +479,7 @@ class Analytic_Suite {
 
             <div class="as-public-charts as-public-charts--featured">
                 <?php $this->render_public_chart( __( 'Civilité', 'analytic-suite' ), 'doughnut', $civility_breakdown ); ?>
-                <?php $this->render_public_chart( __( 'Type de conseil recherché', 'analytic-suite' ), 'doughnut', $support_breakdown ); ?>
+                <?php $this->render_public_chart( __( 'Type de conseils recherché', 'analytic-suite' ), 'doughnut', $support_breakdown ); ?>
                 <?php $this->render_public_chart( __( 'Localisation', 'analytic-suite' ), 'doughnut', $location_breakdown ); ?>
             </div>
 
