@@ -316,64 +316,167 @@ class Analytic_Suite_Content_Repository {
     }
 
     /**
-     * Gets industry and support-type breakdown for users registered via Elementor forms.
-     * Industry source      : `industries` user meta (field `sector` in both masterclass & livre forms).
-     * Support-type source  : `type_support` user meta (field `advice_type` in both forms).
+     * Reads all demographics from Elementor Pro form submissions.
+     * Source forms : "Form Register Masterclass" and "Form Livre Blanc".
+     * Uniqueness   : one record per email — MAX(submission id) wins.
      *
-     * @return array { industry_breakdown: array, support_breakdown: array }
+     * @return array {
+     *   total_users: int,
+     *   civility_breakdown: array,
+     *   experience_breakdown: array,
+     *   industry_breakdown: array,
+     *   support_breakdown: array,
+     *   location_breakdown: array,
+     * }
      */
     public function get_registered_user_demographics() {
-        global $wpdb;
-
-        $user_ids = $this->get_content_user_ids();
-
-        if ( empty( $user_ids ) ) {
+        if ( ! $this->elementor_tables_exist() ) {
             return array(
-                'industry_breakdown' => array(),
-                'support_breakdown'  => array(),
+                'total_users'          => 0,
+                'civility_breakdown'   => array(),
+                'experience_breakdown' => array(),
+                'industry_breakdown'   => array(),
+                'support_breakdown'    => array(),
+                'location_breakdown'   => array(),
             );
         }
 
-        $ids_in = implode( ',', array_map( 'intval', $user_ids ) );
-
-        // Industry breakdown — `industries` user meta saved by both Elementor forms.
-        $industry_rows = $wpdb->get_results(
-            "SELECT meta_value, COUNT(*) AS total
-             FROM {$wpdb->usermeta}
-             WHERE meta_key = 'industries'
-             AND user_id IN ({$ids_in})
-             AND meta_value != ''
-             GROUP BY meta_value
-             ORDER BY total DESC",
-            ARRAY_A
-        );
-
-        $industry_breakdown = array();
-        foreach ( $industry_rows as $row ) {
-            $industry_breakdown[ ucfirst( (string) $row['meta_value'] ) ] = (int) $row['total'];
-        }
-
-        // Support-type breakdown — `type_support` user meta saved by both Elementor forms.
-        $support_rows = $wpdb->get_results(
-            "SELECT meta_value, COUNT(*) AS total
-             FROM {$wpdb->usermeta}
-             WHERE meta_key = 'type_support'
-             AND user_id IN ({$ids_in})
-             AND meta_value != ''
-             GROUP BY meta_value
-             ORDER BY total DESC",
-            ARRAY_A
-        );
-
-        $support_breakdown = array();
-        foreach ( $support_rows as $row ) {
-            $support_breakdown[ ucfirst( (string) $row['meta_value'] ) ] = (int) $row['total'];
-        }
+        $forms = array( 'Form Register Masterclass', 'Form Livre Blanc' );
 
         return array(
-            'industry_breakdown' => $industry_breakdown,
-            'support_breakdown'  => $support_breakdown,
+            'total_users'          => $this->get_elementor_unique_users_count( $forms ),
+            'civility_breakdown'   => $this->get_elementor_field_breakdown( 'civility', $forms ),
+            'experience_breakdown' => $this->get_elementor_field_breakdown( 'field_experience', $forms ),
+            'industry_breakdown'   => $this->get_elementor_field_breakdown( 'sector', $forms ),
+            'support_breakdown'    => $this->get_elementor_field_breakdown( 'advice_type', $forms ),
+            'location_breakdown'   => $this->get_elementor_field_breakdown( 'localisation', $forms ),
         );
+    }
+
+    /**
+     * Returns the top N masterclasses by registration count from Elementor submissions.
+     * Each form submission counts (not deduplicated — one user can attend multiple sessions).
+     *
+     * @param int $limit Number of results.
+     * @return array label => count
+     */
+    public function get_top_masterclasses_from_elementor( $limit = 5 ) {
+        if ( ! $this->elementor_tables_exist() ) {
+            return array();
+        }
+
+        global $wpdb;
+        $sub = $wpdb->prefix . 'e_submissions';
+        $val = $wpdb->prefix . 'e_submissions_values';
+
+        $rows = $wpdb->get_results(
+            $wpdb->prepare(
+                "SELECT sv.value AS origin_slug, COUNT(*) AS total
+                 FROM {$sub} s
+                 INNER JOIN {$val} sv ON sv.submission_id = s.id AND sv.key = 'origin'
+                 WHERE s.form_name = %s
+                   AND sv.value != ''
+                 GROUP BY sv.value
+                 ORDER BY total DESC
+                 LIMIT %d",
+                'Form Register Masterclass',
+                $limit
+            ),
+            ARRAY_A
+        );
+
+        $result = array();
+        foreach ( $rows as $row ) {
+            $post  = get_page_by_path( sanitize_text_field( $row['origin_slug'] ), OBJECT, 'expert-session' );
+            $label = $post
+                ? get_the_title( $post )
+                : ucwords( str_replace( '-', ' ', $row['origin_slug'] ) );
+            $result[ $label ] = (int) $row['total'];
+        }
+
+        return $result;
+    }
+
+    /**
+     * Checks that both Elementor Pro submission tables exist.
+     *
+     * @return bool
+     */
+    private function elementor_tables_exist() {
+        global $wpdb;
+        $sub = $wpdb->prefix . 'e_submissions';
+        $val = $wpdb->prefix . 'e_submissions_values';
+
+        return $wpdb->get_var( "SHOW TABLES LIKE '{$sub}'" ) === $sub
+            && $wpdb->get_var( "SHOW TABLES LIKE '{$val}'" ) === $val;
+    }
+
+    /**
+     * Counts distinct emails across the given Elementor form names.
+     *
+     * @param array $form_names Form names to include.
+     * @return int
+     */
+    private function get_elementor_unique_users_count( array $form_names ) {
+        global $wpdb;
+        $sub = $wpdb->prefix . 'e_submissions';
+        $val = $wpdb->prefix . 'e_submissions_values';
+        $ph  = implode( ',', array_fill( 0, count( $form_names ), '%s' ) );
+
+        return (int) $wpdb->get_var(
+            $wpdb->prepare(
+                "SELECT COUNT(DISTINCT sv.value)
+                 FROM {$sub} s
+                 INNER JOIN {$val} sv ON sv.submission_id = s.id AND sv.key = 'your_email'
+                 WHERE s.form_name IN ({$ph})
+                   AND sv.value != ''",
+                ...$form_names
+            )
+        );
+    }
+
+    /**
+     * Returns a value→count map for a specific Elementor field.
+     * Deduplication: for each unique email, only the latest submission (MAX id) is counted.
+     *
+     * @param string $field_key Elementor field key (e.g. 'sector', 'civility').
+     * @param array  $form_names Form names to include.
+     * @return array label => count
+     */
+    private function get_elementor_field_breakdown( $field_key, array $form_names ) {
+        global $wpdb;
+        $sub  = $wpdb->prefix . 'e_submissions';
+        $val  = $wpdb->prefix . 'e_submissions_values';
+        $ph   = implode( ',', array_fill( 0, count( $form_names ), '%s' ) );
+        $args = array_merge( $form_names, array( $field_key ) );
+
+        $rows = $wpdb->get_results(
+            $wpdb->prepare(
+                "SELECT sv.value, COUNT(*) AS total
+                 FROM {$val} sv
+                 WHERE sv.submission_id IN (
+                     SELECT MAX(s.id)
+                     FROM {$sub} s
+                     INNER JOIN {$val} sv_e ON sv_e.submission_id = s.id AND sv_e.key = 'your_email'
+                     WHERE s.form_name IN ({$ph})
+                       AND sv_e.value != ''
+                     GROUP BY sv_e.value
+                 )
+                   AND sv.key = %s
+                   AND sv.value != ''
+                 GROUP BY sv.value
+                 ORDER BY total DESC",
+                ...$args
+            ),
+            ARRAY_A
+        );
+
+        $breakdown = array();
+        foreach ( $rows as $row ) {
+            $breakdown[ ucfirst( (string) $row['value'] ) ] = (int) $row['total'];
+        }
+
+        return $breakdown;
     }
 
     /**

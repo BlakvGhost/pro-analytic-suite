@@ -420,11 +420,17 @@ class Analytic_Suite {
         $login_rate      = $this->calculate_percentage( $data['logged_in_users'], $data['total_users'] );
         $access_rate     = $this->calculate_percentage( $data['disability_count'], $data['total_users'] );
         $ga_data            = $this->get_public_ga_data();
-        $registered_demos   = $content_repo->get_registered_user_demographics();
-        $industry_breakdown = $registered_demos['industry_breakdown'];
-        $support_breakdown  = $registered_demos['support_breakdown'];
-        $location_breakdown = $ga_data['demographics']['countries'] ?? array();
-        $city_breakdown     = $ga_data['demographics']['cities'] ?? array();
+        $registered_demos     = $content_repo->get_registered_user_demographics();
+        $elementor_total      = $registered_demos['total_users'];
+        $civility_breakdown   = $registered_demos['civility_breakdown'];
+        $experience_breakdown = $registered_demos['experience_breakdown'];
+        $industry_breakdown   = $registered_demos['industry_breakdown'];
+        $support_breakdown    = $registered_demos['support_breakdown'];
+        $location_breakdown   = ! empty( $registered_demos['location_breakdown'] )
+            ? $registered_demos['location_breakdown']
+            : ( $ga_data['demographics']['countries'] ?? array() );
+        $city_breakdown       = $ga_data['demographics']['cities'] ?? array();
+        $top_masterclasses    = $content_repo->get_top_masterclasses_from_elementor();
 
         ob_start();
         ?>
@@ -443,7 +449,7 @@ class Analytic_Suite {
             </section>
 
             <div class="as-public-grid">
-                <?php $this->render_public_stat_card( __( 'Utilisateurs inscrits', 'analytic-suite' ), $data['total_users'], __( 'Base totale', 'analytic-suite' ) ); ?>
+                <?php $this->render_public_stat_card( __( 'Utilisateurs inscrits', 'analytic-suite' ), $elementor_total ?: $data['total_users'], __( 'Utilisateurs uniques', 'analytic-suite' ) ); ?>
                 <?php $this->render_public_stat_card( __( 'Contenus finalisés', 'analytic-suite' ), $data['completed_content'], number_format_i18n( $engagement_rate, 1 ) . '%' ); ?>
                 <?php $this->render_public_stat_card( __( 'Situation de handicap', 'analytic-suite' ), $data['disability_count'], number_format_i18n( $access_rate, 1 ) . '%' ); ?>
             </div>
@@ -472,14 +478,26 @@ class Analytic_Suite {
             <?php endif; ?>
 
             <div class="as-public-charts as-public-charts--featured">
+                <?php $this->render_public_chart( __( 'Civilité', 'analytic-suite' ), 'doughnut', $civility_breakdown ); ?>
                 <?php $this->render_public_chart( __( 'Type de support recherché', 'analytic-suite' ), 'doughnut', $support_breakdown ); ?>
                 <?php $this->render_public_chart( __( 'Localisation', 'analytic-suite' ), 'doughnut', $location_breakdown ); ?>
             </div>
 
-            <div class="as-public-charts">
+            <div class="as-public-charts as-public-charts--3col">
                 <?php $this->render_public_chart( __( 'Secteurs d\'activité', 'analytic-suite' ), 'bar', $industry_breakdown ); ?>
+                <?php $this->render_public_chart( __( 'Années d\'expérience', 'analytic-suite' ), 'bar', $experience_breakdown ); ?>
                 <?php $this->render_public_chart( __( 'Villes', 'analytic-suite' ), 'bar', $city_breakdown ); ?>
             </div>
+
+            <?php if ( ! empty( $top_masterclasses ) ) : ?>
+                <section class="as-public-top-mc">
+                    <div class="as-public-top-mc-heading">
+                        <h3><?php esc_html_e( 'Top 5 Masterclasses', 'analytic-suite' ); ?></h3>
+                        <span><?php esc_html_e( 'par nombre d\'inscriptions', 'analytic-suite' ); ?></span>
+                    </div>
+                    <?php $this->render_public_chart( __( 'Inscriptions', 'analytic-suite' ), 'bar', $top_masterclasses ); ?>
+                </section>
+            <?php endif; ?>
 
         </div>
         <?php
