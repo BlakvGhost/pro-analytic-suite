@@ -369,14 +369,15 @@ class Analytic_Suite_Content_Repository {
         $sub = $wpdb->prefix . 'e_submissions';
         $val = $wpdb->prefix . 'e_submissions_values';
 
+        $date_col  = $this->get_submissions_date_column();
         $date_sql  = '';
         $date_args = array();
-        if ( ! empty( $date_from ) ) {
-            $date_sql  .= ' AND s.created_at >= %s';
+        if ( $date_col && ! empty( $date_from ) ) {
+            $date_sql  .= " AND s.{$date_col} >= %s";
             $date_args[] = $date_from . ' 00:00:00';
         }
-        if ( ! empty( $date_to ) ) {
-            $date_sql  .= ' AND s.created_at <= %s';
+        if ( $date_col && ! empty( $date_to ) ) {
+            $date_sql  .= " AND s.{$date_col} <= %s";
             $date_args[] = $date_to . ' 23:59:59';
         }
 
@@ -411,6 +412,35 @@ class Analytic_Suite_Content_Repository {
     }
 
     /**
+     * Returns the name of the date column in e_submissions (varies by Elementor version).
+     * Falls back to null when the table is absent or has no usable date column.
+     *
+     * @return string|null  Column name, e.g. 'created_at', or null.
+     */
+    private function get_submissions_date_column() {
+        static $cache = false;
+
+        if ( $cache !== false ) {
+            return $cache;
+        }
+
+        global $wpdb;
+        $table = $wpdb->prefix . 'e_submissions';
+
+        $columns = $wpdb->get_col( "SHOW COLUMNS FROM `{$table}`" );
+
+        foreach ( array( 'created_at', 'date_time', 'submitted_at', 'submission_date' ) as $candidate ) {
+            if ( in_array( $candidate, $columns, true ) ) {
+                $cache = $candidate;
+                return $cache;
+            }
+        }
+
+        $cache = null;
+        return null;
+    }
+
+    /**
      * Checks that both Elementor Pro submission tables exist.
      *
      * @return bool
@@ -432,18 +462,19 @@ class Analytic_Suite_Content_Repository {
      */
     private function get_elementor_unique_users_count( array $form_names, $date_from = '', $date_to = '' ) {
         global $wpdb;
-        $sub = $wpdb->prefix . 'e_submissions';
-        $val = $wpdb->prefix . 'e_submissions_values';
-        $ph  = implode( ',', array_fill( 0, count( $form_names ), '%s' ) );
+        $sub      = $wpdb->prefix . 'e_submissions';
+        $val      = $wpdb->prefix . 'e_submissions_values';
+        $ph       = implode( ',', array_fill( 0, count( $form_names ), '%s' ) );
+        $date_col = $this->get_submissions_date_column();
 
         $date_sql  = '';
         $date_args = array();
-        if ( ! empty( $date_from ) ) {
-            $date_sql  .= ' AND s.created_at >= %s';
+        if ( $date_col && ! empty( $date_from ) ) {
+            $date_sql  .= " AND s.{$date_col} >= %s";
             $date_args[] = $date_from . ' 00:00:00';
         }
-        if ( ! empty( $date_to ) ) {
-            $date_sql  .= ' AND s.created_at <= %s';
+        if ( $date_col && ! empty( $date_to ) ) {
+            $date_sql  .= " AND s.{$date_col} <= %s";
             $date_args[] = $date_to . ' 23:59:59';
         }
 
@@ -472,18 +503,19 @@ class Analytic_Suite_Content_Repository {
      */
     private function get_elementor_field_breakdown( $field_key, array $form_names, $date_from = '', $date_to = '' ) {
         global $wpdb;
-        $sub  = $wpdb->prefix . 'e_submissions';
-        $val  = $wpdb->prefix . 'e_submissions_values';
-        $ph   = implode( ',', array_fill( 0, count( $form_names ), '%s' ) );
+        $sub      = $wpdb->prefix . 'e_submissions';
+        $val      = $wpdb->prefix . 'e_submissions_values';
+        $ph       = implode( ',', array_fill( 0, count( $form_names ), '%s' ) );
+        $date_col = $this->get_submissions_date_column();
 
         $date_sql  = '';
         $date_args = array();
-        if ( ! empty( $date_from ) ) {
-            $date_sql  .= ' AND s.created_at >= %s';
+        if ( $date_col && ! empty( $date_from ) ) {
+            $date_sql  .= " AND s.{$date_col} >= %s";
             $date_args[] = $date_from . ' 00:00:00';
         }
-        if ( ! empty( $date_to ) ) {
-            $date_sql  .= ' AND s.created_at <= %s';
+        if ( $date_col && ! empty( $date_to ) ) {
+            $date_sql  .= " AND s.{$date_col} <= %s";
             $date_args[] = $date_to . ' 23:59:59';
         }
 

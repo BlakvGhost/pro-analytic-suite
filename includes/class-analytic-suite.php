@@ -417,13 +417,20 @@ class Analytic_Suite {
         $filters = $this->get_public_filters();
 
         $content_repo = new Analytic_Suite_Content_Repository();
-        $data         = $content_repo->get_public_demographics( $filters['date_from'], $filters['date_to'] );
-        $engagement_rate = $this->calculate_percentage( $data['completed_content'], $data['total_users'] );
-        $login_rate      = $this->calculate_percentage( $data['logged_in_users'], $data['total_users'] );
+
+        // Elementor-based registrations (date-filtered).
+        $registered_demos = $content_repo->get_registered_user_demographics( $filters['date_from'], $filters['date_to'] );
+        $elementor_total  = $registered_demos['total_users'];
+
+        // Legacy WP demographics (disability/login use wp_usermeta — no date column, not filterable).
+        $data            = $content_repo->get_public_demographics( $filters['date_from'], $filters['date_to'] );
+
+        // Use elementor_total as denominator when available; it shares the same date scope as the numerator.
+        $rate_base       = $elementor_total > 0 ? $elementor_total : $data['total_users'];
+        $engagement_rate = $this->calculate_percentage( $data['completed_content'], $rate_base );
         $access_rate     = $this->calculate_percentage( $data['disability_count'], $data['total_users'] );
-        $ga_data            = $this->get_public_ga_data( $filters );
-        $registered_demos     = $content_repo->get_registered_user_demographics( $filters['date_from'], $filters['date_to'] );
-        $elementor_total      = $registered_demos['total_users'];
+
+        $ga_data = $this->get_public_ga_data( $filters );
         $civility_breakdown   = $registered_demos['civility_breakdown'];
         $experience_breakdown = $registered_demos['experience_breakdown'];
         $industry_breakdown   = $registered_demos['industry_breakdown'];
@@ -453,7 +460,7 @@ class Analytic_Suite {
             </section>
 
             <div class="as-public-grid">
-                <?php $this->render_public_stat_card( __( 'Utilisateurs inscrits', 'analytic-suite' ), $elementor_total ?: $data['total_users'], __( 'Utilisateurs uniques', 'analytic-suite' ) ); ?>
+                <?php $this->render_public_stat_card( __( 'Utilisateurs inscrits', 'analytic-suite' ), $elementor_total, __( 'Utilisateurs uniques', 'analytic-suite' ) ); ?>
                 <?php $this->render_public_stat_card( __( 'Contenus finalisés', 'analytic-suite' ), $data['completed_content'], number_format_i18n( $engagement_rate, 1 ) . '%' ); ?>
                 <?php $this->render_public_stat_card( __( 'Situation de handicap', 'analytic-suite' ), $data['disability_count'], number_format_i18n( $access_rate, 1 ) . '%' ); ?>
             </div>
