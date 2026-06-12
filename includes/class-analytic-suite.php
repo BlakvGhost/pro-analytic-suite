@@ -432,7 +432,7 @@ class Analytic_Suite {
 
         $ga_data          = $this->get_public_ga_data( $filters );
         $active_users_ga  = isset( $ga_data['summary']['active_users'] ) ? (int) $ga_data['summary']['active_users'] : 0;
-        $conversion_rate  = $this->calculate_percentage( $elementor_total, $active_users_ga );
+        $conversion_rate  = min( 100.0, $this->calculate_percentage( $elementor_total, $active_users_ga ) );
         $civility_breakdown   = $registered_demos['civility_breakdown'];
         $experience_breakdown = $registered_demos['experience_breakdown'];
         $industry_breakdown   = $registered_demos['industry_breakdown'];
