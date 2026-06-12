@@ -76,7 +76,12 @@ class Analytic_Suite {
      * Ensures access capabilities exist for already-activated installs.
      */
     public function ensure_capabilities() {
+        if ( get_option( 'analytic_suite_caps_version' ) === ANALYTIC_SUITE_VERSION ) {
+            return;
+        }
+
         Analytic_Suite_Activator::add_capabilities();
+        update_option( 'analytic_suite_caps_version', ANALYTIC_SUITE_VERSION, false );
 
         $user = wp_get_current_user();
         if ( $user instanceof WP_User ) {
@@ -147,6 +152,11 @@ class Analytic_Suite {
      * Enqueues assets for the public analytics shortcode.
      */
     public function enqueue_public_assets() {
+        global $post;
+        if ( ! is_a( $post, 'WP_Post' ) || ! has_shortcode( $post->post_content, 'analytics_public' ) ) {
+            return;
+        }
+
         wp_enqueue_style(
             'analytic-suite-public',
             ANALYTIC_SUITE_URL . 'assets/css/admin.css',
