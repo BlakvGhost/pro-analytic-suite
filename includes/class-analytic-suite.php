@@ -430,7 +430,9 @@ class Analytic_Suite {
         $engagement_rate = $this->calculate_percentage( $data['completed_content'], $rate_base );
         $access_rate     = $this->calculate_percentage( $data['disability_count'], $data['total_users'] );
 
-        $ga_data = $this->get_public_ga_data( $filters );
+        $ga_data          = $this->get_public_ga_data( $filters );
+        $active_users_ga  = isset( $ga_data['summary']['active_users'] ) ? (int) $ga_data['summary']['active_users'] : 0;
+        $conversion_rate  = $this->calculate_percentage( $elementor_total, $active_users_ga );
         $civility_breakdown   = $registered_demos['civility_breakdown'];
         $experience_breakdown = $registered_demos['experience_breakdown'];
         $industry_breakdown   = $registered_demos['industry_breakdown'];
@@ -460,7 +462,7 @@ class Analytic_Suite {
             </section>
 
             <div class="as-public-grid">
-                <?php $this->render_public_stat_card( __( 'Apprenants inscrits', 'analytic-suite' ), $elementor_total, __( 'Utilisateurs uniques', 'analytic-suite' ) ); ?>
+                <?php $this->render_public_stat_card( __( 'Apprenants inscrits', 'analytic-suite' ), $elementor_total, $active_users_ga > 0 ? number_format_i18n( $conversion_rate, 1 ) . '% ' . __( 'taux de conversion', 'analytic-suite' ) : __( 'Apprenants uniques', 'analytic-suite' ) ); ?>
                 <?php $this->render_public_stat_card( __( 'Contenus consultés', 'analytic-suite' ), $data['completed_content'], number_format_i18n( $engagement_rate, 1 ) . '%' ); ?>
                 <?php $this->render_public_stat_card( __( 'Situation de handicap', 'analytic-suite' ), $data['disability_count'], number_format_i18n( $access_rate, 1 ) . '%' ); ?>
             </div>
