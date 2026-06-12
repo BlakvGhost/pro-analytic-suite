@@ -450,7 +450,7 @@ class Analytic_Suite {
                 <div class="as-public-hero-copy">
                     <span class="as-public-kicker"><?php esc_html_e( 'Analytics publics', 'analytic-suite' ); ?></span>
                     <h2><?php esc_html_e( 'Tableau de bord', 'analytic-suite' ); ?></h2>
-                    <p><?php esc_html_e( "Une lecture claire des profils, de l'engagement et de la progression des utilisateurs.", 'analytic-suite' ); ?></p>
+                    <p><?php esc_html_e( "Une lecture claire des profils, de l'engagement et de la progression des apprenants.", 'analytic-suite' ); ?></p>
                 </div>
                 <div class="as-public-hero-meter">
                     <span><?php esc_html_e( 'Engagement contenu', 'analytic-suite' ); ?></span>
@@ -460,8 +460,8 @@ class Analytic_Suite {
             </section>
 
             <div class="as-public-grid">
-                <?php $this->render_public_stat_card( __( 'Utilisateurs inscrits', 'analytic-suite' ), $elementor_total, __( 'Utilisateurs uniques', 'analytic-suite' ) ); ?>
-                <?php $this->render_public_stat_card( __( 'Contenus finalisés', 'analytic-suite' ), $data['completed_content'], number_format_i18n( $engagement_rate, 1 ) . '%' ); ?>
+                <?php $this->render_public_stat_card( __( 'Apprenants inscrits', 'analytic-suite' ), $elementor_total, __( 'Utilisateurs uniques', 'analytic-suite' ) ); ?>
+                <?php $this->render_public_stat_card( __( 'Contenus consultés', 'analytic-suite' ), $data['completed_content'], number_format_i18n( $engagement_rate, 1 ) . '%' ); ?>
                 <?php $this->render_public_stat_card( __( 'Situation de handicap', 'analytic-suite' ), $data['disability_count'], number_format_i18n( $access_rate, 1 ) . '%' ); ?>
             </div>
 
