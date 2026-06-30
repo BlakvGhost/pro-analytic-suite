@@ -716,6 +716,87 @@ class Analytic_Suite_Content_Repository {
     }
 
     /**
+     * Counts registered apprenants (Elementor, date-filtered) whose email appears
+     * in at least one completed WooCommerce order. Supports both HPOS and legacy storage.
+     *
+     * @param string $date_from Registration start date (Y-m-d).
+     * @param string $date_to   Registration end date (Y-m-d).
+     * @return int
+     */
+    public function get_paying_apprenants_count( $date_from = '', $date_to = '' ) {
+        if ( ! $this->elementor_tables_exist() ) {
+            return 0;
+        }
+
+        global $wpdb;
+
+        // Collect distinct billing emails from completed WC orders (HPOS + legacy).
+        $paying_emails = array();
+
+        $hpos_table = $wpdb->prefix . 'wc_orders';
+        if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $hpos_table ) ) === $hpos_table ) {
+            $rows = $wpdb->get_col(
+                "SELECT DISTINCT LOWER(billing_email) FROM `{$hpos_table}`
+                 WHERE status = 'wc-completed' AND billing_email != ''"
+            );
+            if ( $rows ) {
+                $paying_emails = $rows;
+            }
+        }
+
+        $legacy_rows = $wpdb->get_col(
+            "SELECT DISTINCT LOWER(pm.meta_value)
+             FROM {$wpdb->postmeta} pm
+             INNER JOIN {$wpdb->posts} p ON p.ID = pm.post_id
+             WHERE pm.meta_key = '_billing_email'
+               AND pm.meta_value != ''
+               AND p.post_type = 'shop_order'
+               AND p.post_status = 'wc-completed'"
+        );
+        if ( $legacy_rows ) {
+            $paying_emails = array_unique( array_merge( $paying_emails, $legacy_rows ) );
+        }
+
+        $paying_emails = array_values( array_filter( $paying_emails ) );
+        if ( empty( $paying_emails ) ) {
+            return 0;
+        }
+
+        $sub      = $wpdb->prefix . 'e_submissions';
+        $val      = $wpdb->prefix . 'e_submissions_values';
+        $forms    = array( 'Form Register Masterclass', 'Form Livre Blanc' );
+        $form_ph  = implode( ',', array_fill( 0, count( $forms ), '%s' ) );
+        $email_ph = implode( ',', array_fill( 0, count( $paying_emails ), '%s' ) );
+        $date_col = $this->get_submissions_date_column();
+
+        $date_sql  = '';
+        $date_args = array();
+        if ( $date_col && ! empty( $date_from ) ) {
+            $date_sql  .= " AND s.{$date_col} >= %s";
+            $date_args[] = $date_from . ' 00:00:00';
+        }
+        if ( $date_col && ! empty( $date_to ) ) {
+            $date_sql  .= " AND s.{$date_col} <= %s";
+            $date_args[] = $date_to . ' 23:59:59';
+        }
+
+        $args = array_merge( $forms, $date_args, $paying_emails );
+
+        return (int) $wpdb->get_var(
+            $wpdb->prepare(
+                "SELECT COUNT(DISTINCT LOWER(sv.value))
+                 FROM {$sub} s
+                 INNER JOIN {$val} sv ON sv.submission_id = s.id AND sv.key = 'your_email'
+                 WHERE s.form_name IN ({$form_ph})
+                   AND sv.value != ''
+                   {$date_sql}
+                   AND LOWER(sv.value) IN ({$email_ph})",
+                ...$args
+            )
+        );
+    }
+
+    /**
      * Gets count of users who logged in at least once.
      *
      * @return int

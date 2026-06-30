@@ -438,7 +438,10 @@ class Analytic_Suite {
         // Use elementor_total as denominator when available; it shares the same date scope as the numerator.
         $rate_base       = $elementor_total > 0 ? $elementor_total : $data['total_users'];
         $engagement_rate = $this->calculate_percentage( $data['completed_content'], $rate_base );
-        $access_rate     = $this->calculate_percentage( $data['disability_count'], $data['total_users'] );
+
+        // Paying = registered apprenants whose email appears in a completed WC order.
+        $paying_count = $content_repo->get_paying_apprenants_count( $filters['date_from'], $filters['date_to'] );
+        $free_count   = max( 0, $elementor_total - $paying_count );
 
         $ga_data          = $this->get_public_ga_data( $filters );
         $active_users_ga  = isset( $ga_data['summary']['active_users'] ) ? (int) $ga_data['summary']['active_users'] : 0;
@@ -472,9 +475,10 @@ class Analytic_Suite {
             </section>
 
             <div class="as-public-grid">
-                <?php $this->render_public_stat_card( __( 'Apprenants inscrits', 'analytic-suite' ), $elementor_total, $active_users_ga > 0 ? number_format_i18n( $conversion_rate, 1 ) . '% ' . __( 'taux de conversion', 'analytic-suite' ) : __( 'Apprenants uniques', 'analytic-suite' ) ); ?>
+                <?php $this->render_public_stat_card( __( 'Nouveaux Apprenants', 'analytic-suite' ), $elementor_total, $active_users_ga > 0 ? number_format_i18n( $conversion_rate, 1 ) . '% ' . __( 'taux de conversion', 'analytic-suite' ) : __( 'Apprenants uniques', 'analytic-suite' ) ); ?>
                 <?php $this->render_public_stat_card( __( 'Contenus consultés', 'analytic-suite' ), $data['completed_content'], number_format_i18n( $engagement_rate, 1 ) . '%' ); ?>
-                <?php $this->render_public_stat_card( __( 'Situation de handicap', 'analytic-suite' ), $data['disability_count'], number_format_i18n( $access_rate, 1 ) . '%' ); ?>
+                <?php $this->render_public_stat_card( __( 'Nouveau apprenant payant', 'analytic-suite' ), $paying_count, __( 'Avec réservation terminée', 'analytic-suite' ) ); ?>
+                <?php $this->render_public_stat_card( __( 'Nouveau apprenant gratuit', 'analytic-suite' ), $free_count, __( 'Inscrit sans réservation', 'analytic-suite' ) ); ?>
             </div>
 
             <?php if ( ! empty( $ga_data['configured'] ) ) : ?>
