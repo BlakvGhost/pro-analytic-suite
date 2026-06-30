@@ -485,8 +485,8 @@ class Analytic_Suite {
             <div class="as-public-grid">
                 <?php $this->render_public_stat_card( __( 'Nouveaux Apprenants', 'analytic-suite' ), $elementor_total, $active_users_ga > 0 ? number_format_i18n( $conversion_rate, 1 ) . '% ' . __( 'taux de conversion', 'analytic-suite' ) : __( 'Apprenants uniques', 'analytic-suite' ) ); ?>
                 <?php $this->render_public_stat_card( __( 'Contenus consultés', 'analytic-suite' ), $data['completed_content'], number_format_i18n( $engagement_rate, 1 ) . '%' ); ?>
-                <?php $this->render_public_stat_card( __( 'Nouveau apprenant payant', 'analytic-suite' ), $paying_count, __( 'Avec réservation terminée', 'analytic-suite' ) ); ?>
-                <?php $this->render_public_stat_card( __( 'Nouveau apprenant gratuit', 'analytic-suite' ), $free_count, __( 'Inscrit sans réservation', 'analytic-suite' ) ); ?>
+                <?php $this->render_public_stat_card( __( 'Nouveaux apprenants payants', 'analytic-suite' ), $paying_count, __( 'Avec réservation terminée', 'analytic-suite' ) ); ?>
+                <?php $this->render_public_stat_card( __( 'Nouveaux apprenants gratuits', 'analytic-suite' ), $free_count, __( 'Inscrit sans réservation', 'analytic-suite' ) ); ?>
             </div>
 
             <?php if ( ! empty( $ga_data['configured'] ) ) : ?>
