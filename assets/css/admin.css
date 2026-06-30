@@ -819,6 +819,11 @@
     margin-bottom: 18px;
 }
 
+.analytic-suite-public .as-public-grid--location {
+    grid-template-columns: repeat(2, minmax(220px, 360px));
+    justify-content: start;
+}
+
 .analytic-suite-public .as-public-card {
     background: var(--as-public-surface);
     border: 1px solid var(--as-public-border);

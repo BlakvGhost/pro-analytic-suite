@@ -456,6 +456,14 @@ class Analytic_Suite {
         $city_breakdown       = $ga_data['demographics']['cities'] ?? array();
         $top_masterclasses    = $content_repo->get_top_masterclasses_from_elementor( 5, $filters['date_from'], $filters['date_to'] );
 
+        // Classify GA4 cities as urban/rural via Open-Meteo Geocoding API (cached 30 days).
+        $zone_counts = $this->get_urban_rural_counts( $city_breakdown );
+        $loc_urban   = $zone_counts['urban'];
+        $loc_rural   = $zone_counts['rural'];
+        $loc_total   = $loc_urban + $loc_rural;
+        $urban_pct   = $loc_total > 0 ? number_format_i18n( round( $loc_urban / $loc_total * 100, 1 ), 1 ) : '0';
+        $rural_pct   = $loc_total > 0 ? number_format_i18n( round( $loc_rural / $loc_total * 100, 1 ), 1 ) : '0';
+
         ob_start();
         ?>
         <div class="analytic-suite-public">
@@ -510,6 +518,13 @@ class Analytic_Suite {
                 <?php $this->render_public_chart( __( 'Localisation', 'analytic-suite' ), 'doughnut', $location_breakdown ); ?>
             </div>
 
+            <?php if ( $loc_total > 0 ) : ?>
+            <div class="as-public-grid as-public-grid--location">
+                <?php $this->render_public_stat_card( __( 'Zone urbaine', 'analytic-suite' ), $loc_urban, $urban_pct . __( '% des visiteurs localisés', 'analytic-suite' ) ); ?>
+                <?php $this->render_public_stat_card( __( 'Zone rurale', 'analytic-suite' ), $loc_rural, $rural_pct . __( '% des visiteurs localisés', 'analytic-suite' ) ); ?>
+            </div>
+            <?php endif; ?>
+
             <div class="as-public-charts as-public-charts--3col">
                 <?php $this->render_public_chart( __( 'Secteurs d\'activité', 'analytic-suite' ), 'bar', $industry_breakdown ); ?>
                 <?php $this->render_public_chart( __( 'Années d\'expérience', 'analytic-suite' ), 'bar', $experience_breakdown ); ?>
@@ -544,6 +559,86 @@ class Analytic_Suite {
         echo '<strong class="as-card-value">' . esc_html( number_format_i18n( (int) $value ) ) . '</strong>';
         echo '<small>' . esc_html( $note ) . '</small>';
         echo '</div>';
+    }
+
+    /**
+     * Aggregates GA4 visitor counts into urban/rural buckets using city classification.
+     *
+     * @param array $city_breakdown city_name => session_count from GA4.
+     * @return array { urban: int, rural: int, unknown: int }
+     */
+    private function get_urban_rural_counts( array $city_breakdown ) {
+        $counts = array( 'urban' => 0, 'rural' => 0, 'unknown' => 0 );
+        foreach ( $city_breakdown as $city => $sessions ) {
+            $city = trim( (string) $city );
+            if ( '' === $city || '(not set)' === $city ) {
+                continue;
+            }
+            $zone             = $this->classify_city_zone( $city );
+            $counts[ $zone ] += (int) $sessions;
+        }
+        return $counts;
+    }
+
+    /**
+     * Classifies a city as 'urban', 'rural', or 'unknown' using the Open-Meteo
+     * Geocoding API (free, no API key). Results are cached as WP transients for 30 days.
+     *
+     * Classification rules (GeoNames feature codes + population):
+     *   - PPLC / PPLG / PPLA  → always urban (capital / admin seat level 1)
+     *   - Others with pop > 10 000 → urban
+     *   - Others with pop ≤ 10 000 → rural
+     *   - No result or no population → unknown
+     *
+     * @param string $city City name.
+     * @return string 'urban' | 'rural' | 'unknown'
+     */
+    private function classify_city_zone( $city ) {
+        $cache_key = 'analytic_suite_city_zone_' . md5( strtolower( $city ) );
+        $cached    = get_transient( $cache_key );
+        if ( false !== $cached ) {
+            return $cached;
+        }
+
+        $url = add_query_arg(
+            array(
+                'name'     => $city,
+                'count'    => 1,
+                'language' => 'fr',
+                'format'   => 'json',
+            ),
+            'https://geocoding-api.open-meteo.com/v1/search'
+        );
+
+        $response = wp_remote_get(
+            $url,
+            array(
+                'timeout'    => 5,
+                'user-agent' => 'AnalyticSuite/' . ANALYTIC_SUITE_VERSION . ' WordPress Plugin',
+            )
+        );
+
+        $zone = 'unknown';
+
+        if ( ! is_wp_error( $response ) && 200 === wp_remote_retrieve_response_code( $response ) ) {
+            $body   = json_decode( wp_remote_retrieve_body( $response ), true );
+            $result = ! empty( $body['results'][0] ) ? $body['results'][0] : null;
+
+            if ( $result ) {
+                $feature_code  = isset( $result['feature_code'] ) ? strtoupper( $result['feature_code'] ) : '';
+                $population    = isset( $result['population'] ) ? (int) $result['population'] : null;
+                $always_urban  = array( 'PPLC', 'PPLG', 'PPLA' );
+
+                if ( in_array( $feature_code, $always_urban, true ) ) {
+                    $zone = 'urban';
+                } elseif ( null !== $population ) {
+                    $zone = $population > 10000 ? 'urban' : 'rural';
+                }
+            }
+        }
+
+        set_transient( $cache_key, $zone, 30 * DAY_IN_SECONDS );
+        return $zone;
     }
 
     /**
