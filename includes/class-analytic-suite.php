@@ -540,7 +540,7 @@ class Analytic_Suite {
             <div class="as-public-charts as-public-charts--3col">
                 <?php $this->render_public_chart( __( 'Secteurs d\'activité', 'analytic-suite' ), 'bar', $industry_breakdown ); ?>
                 <?php $this->render_public_chart( __( 'Années d\'expérience', 'analytic-suite' ), 'bar', $experience_breakdown ); ?>
-                <?php $this->render_public_chart( __( 'Villes', 'analytic-suite' ), 'bar', $city_breakdown ); ?>
+                <?php $this->render_public_chart( __( 'Villes', 'analytic-suite' ), 'bar', array_slice( $city_breakdown, 0, 15, true ) ); ?>
             </div>
 
             <?php if ( ! empty( $top_masterclasses ) ) : ?>

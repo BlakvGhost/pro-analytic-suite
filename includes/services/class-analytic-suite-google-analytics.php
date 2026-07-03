@@ -150,7 +150,7 @@ class Analytic_Suite_Google_Analytics {
             return $this->empty_response();
         }
 
-        $cache_key = $this->cache_key . 'demographics_v2_' . md5( wp_json_encode( $filters ) );
+        $cache_key = $this->cache_key . 'demographics_v3_' . md5( wp_json_encode( $filters ) );
         $cached    = get_transient( $cache_key );
 
         if ( false !== $cached ) {
@@ -169,7 +169,9 @@ class Analytic_Suite_Google_Analytics {
                 'orderBys'        => array(
                     array( 'metric' => array( 'metricName' => 'activeUsers' ), 'desc' => true ),
                 ),
-                'limit'           => 20,
+                // Large limit so long-tail smaller/rural cities aren't cut off before urban/rural classification —
+                // a top-20 cap left only the big metro areas, making the rural bucket always empty.
+                'limit'           => 200,
             )
         );
 
