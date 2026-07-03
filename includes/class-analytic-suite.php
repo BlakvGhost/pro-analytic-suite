@@ -494,7 +494,6 @@ class Analytic_Suite {
 
             <div class="as-public-grid">
                 <?php $this->render_public_stat_card( __( 'Nouveaux Apprenants', 'analytic-suite' ), $total_users, __( '', 'analytic-suite' ) ); ?>
-                <?php $this->render_public_stat_card( __( 'Contenus consultés', 'analytic-suite' ), $data['completed_content'], number_format_i18n( $engagement_rate, 1 ) . '%' ); ?>
                 <?php $this->render_public_stat_card( __( 'Nouveaux apprenants payants', 'analytic-suite' ), $paying_count, __( '', 'analytic-suite' ) ); ?>
                 <?php $this->render_public_stat_card( __( 'Nouveaux apprenants gratuits', 'analytic-suite' ), $free_count, $active_users_ga > 0 ? number_format_i18n( $conversion_rate, 1 ) . '% ' . __( 'taux de conversion', 'analytic-suite' ) : __( 'Apprenants uniques', 'analytic-suite' ) ); ?>
                 <?php $this->render_public_stat_card( __( 'Apprenants actifs', 'analytic-suite' ), $active_count, __( '', 'analytic-suite' ) ); ?>

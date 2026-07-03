@@ -916,40 +916,13 @@ class Analytic_Suite_Content_Repository {
     }
 
     /**
-     * Gets count of users who completed masterclass or free content.
+     * Counts unique users who followed a content (masterclass or book) in the
+     * period. Shares its user set with get_active_content_user_ids() so this
+     * number lines up exactly with the content-consumption half of "Apprenants actifs".
      *
      * @return int
      */
     private function get_completed_content_users( $date_from = '', $date_to = '' ) {
-        $masterclass_count = 0;
-        $books_count       = 0;
-
-        if ( $this->table_exists( 'user_masterclass' ) ) {
-            global $wpdb;
-            $table     = $wpdb->prefix . 'user_masterclass';
-            $date_sql  = '';
-            $date_args = array();
-            if ( ! empty( $date_from ) ) {
-                $date_sql  .= ' AND created_at >= %s';
-                $date_args[] = $date_from . ' 00:00:00';
-            }
-            if ( ! empty( $date_to ) ) {
-                $date_sql  .= ' AND created_at <= %s';
-                $date_args[] = $date_to . ' 23:59:59';
-            }
-
-            if ( ! empty( $date_args ) ) {
-                $masterclass_count = (int) $wpdb->get_var(
-                    $wpdb->prepare(
-                        "SELECT COUNT(DISTINCT user_id) FROM {$table} WHERE 1=1{$date_sql}",
-                        ...$date_args
-                    )
-                );
-            } else {
-                $masterclass_count = (int) $wpdb->get_var( "SELECT COUNT(DISTINCT user_id) FROM {$table}" );
-            }
-        }
-
-        return $masterclass_count + $books_count;
+        return count( $this->get_active_content_user_ids( $date_from, $date_to ) );
     }
 }
