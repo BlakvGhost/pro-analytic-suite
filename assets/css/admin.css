@@ -688,6 +688,7 @@
     --as-public-accent: #d69a3a;
     --as-public-blue: #2563eb;
     --as-public-red: #b42318;
+    --as-public-purple: #7c3aed;
     --as-public-shadow: 0 24px 70px rgba(18, 32, 28, 0.13);
 
     background:
@@ -855,6 +856,10 @@
 
 .analytic-suite-public .as-public-card:nth-child(4)::after {
     background: var(--as-public-red);
+}
+
+.analytic-suite-public .as-public-card:nth-child(5)::after {
+    background: var(--as-public-purple);
 }
 
 .analytic-suite-public .as-card-label {

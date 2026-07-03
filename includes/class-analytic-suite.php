@@ -428,24 +428,29 @@ class Analytic_Suite {
 
         $content_repo = new Analytic_Suite_Content_Repository();
 
-        // Elementor-based registrations (date-filtered).
+        // Elementor-based free-content registrations (date-filtered) = "Nouveaux apprenants gratuits".
         $registered_demos = $content_repo->get_registered_user_demographics( $filters['date_from'], $filters['date_to'] );
-        $elementor_total  = $registered_demos['total_users'];
+        $free_count       = $registered_demos['total_users'];
 
         // Legacy WP demographics (disability/login use wp_usermeta — no date column, not filterable).
         $data            = $content_repo->get_public_demographics( $filters['date_from'], $filters['date_to'] );
 
-        // Use elementor_total as denominator when available; it shares the same date scope as the numerator.
-        $rate_base       = $elementor_total > 0 ? $elementor_total : $data['total_users'];
+        // Total platform users = "Nouveaux Apprenants".
+        $total_users = $data['total_users'];
+
+        // Use free_count as denominator when available; it shares the same date scope as the numerator.
+        $rate_base       = $free_count > 0 ? $free_count : $total_users;
         $engagement_rate = $this->calculate_percentage( $data['completed_content'], $rate_base );
 
-        // Paying = registered apprenants whose email appears in a completed WC order.
+        // Paying = unique customers with at least one completed WooCommerce order (any product).
         $paying_count = $content_repo->get_paying_apprenants_count( $filters['date_from'], $filters['date_to'] );
-        $free_count   = max( 0, $elementor_total - $paying_count );
+
+        // Active = unique apprenants who either paid or registered for free content.
+        $active_count = $content_repo->get_active_apprenants_count( $filters['date_from'], $filters['date_to'] );
 
         $ga_data          = $this->get_public_ga_data( $filters );
         $active_users_ga  = isset( $ga_data['summary']['active_users'] ) ? (int) $ga_data['summary']['active_users'] : 0;
-        $conversion_rate  = min( 100.0, $this->calculate_percentage( $elementor_total, $active_users_ga ) );
+        $conversion_rate  = min( 100.0, $this->calculate_percentage( $free_count, $active_users_ga ) );
         $civility_breakdown   = $registered_demos['civility_breakdown'];
         $experience_breakdown = $registered_demos['experience_breakdown'];
         $industry_breakdown   = $registered_demos['industry_breakdown'];
@@ -483,10 +488,11 @@ class Analytic_Suite {
             </section>
 
             <div class="as-public-grid">
-                <?php $this->render_public_stat_card( __( 'Nouveaux Apprenants', 'analytic-suite' ), $elementor_total, $active_users_ga > 0 ? number_format_i18n( $conversion_rate, 1 ) . '% ' . __( 'taux de conversion', 'analytic-suite' ) : __( 'Apprenants uniques', 'analytic-suite' ) ); ?>
+                <?php $this->render_public_stat_card( __( 'Nouveaux Apprenants', 'analytic-suite' ), $total_users, __( 'Total inscrits sur la plateforme', 'analytic-suite' ) ); ?>
                 <?php $this->render_public_stat_card( __( 'Contenus consultés', 'analytic-suite' ), $data['completed_content'], number_format_i18n( $engagement_rate, 1 ) . '%' ); ?>
-                <?php $this->render_public_stat_card( __( 'Nouveaux apprenants payants', 'analytic-suite' ), $paying_count, __( 'Avec réservation terminée', 'analytic-suite' ) ); ?>
-                <?php $this->render_public_stat_card( __( 'Nouveaux apprenants gratuits', 'analytic-suite' ), $free_count, __( 'Inscrit sans réservation', 'analytic-suite' ) ); ?>
+                <?php $this->render_public_stat_card( __( 'Nouveaux apprenants payants', 'analytic-suite' ), $paying_count, __( '', 'analytic-suite' ) ); ?>
+                <?php $this->render_public_stat_card( __( 'Nouveaux apprenants gratuits', 'analytic-suite' ), $free_count, $active_users_ga > 0 ? number_format_i18n( $conversion_rate, 1 ) . '% ' . __( 'taux de conversion', 'analytic-suite' ) : __( 'Apprenants uniques', 'analytic-suite' ) ); ?>
+                <?php $this->render_public_stat_card( __( 'Apprenants actifs', 'analytic-suite' ), $active_count, __( '', 'analytic-suite' ) ); ?>
             </div>
 
             <?php if ( ! empty( $ga_data['configured'] ) ) : ?>

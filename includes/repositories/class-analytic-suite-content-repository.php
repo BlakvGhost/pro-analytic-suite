@@ -461,6 +461,22 @@ class Analytic_Suite_Content_Repository {
      * @return int
      */
     private function get_elementor_unique_users_count( array $form_names, $date_from = '', $date_to = '' ) {
+        return count( $this->get_elementor_unique_emails( $form_names, $date_from, $date_to ) );
+    }
+
+    /**
+     * Returns distinct emails across the given Elementor form names.
+     * Used both to count free-content registrations and to build the
+     * "active apprenants" union with paying customers.
+     *
+     * @param array $form_names Form names to include.
+     * @return array Lowercase emails.
+     */
+    private function get_elementor_unique_emails( array $form_names, $date_from = '', $date_to = '' ) {
+        if ( ! $this->elementor_tables_exist() ) {
+            return array();
+        }
+
         global $wpdb;
         $sub      = $wpdb->prefix . 'e_submissions';
         $val      = $wpdb->prefix . 'e_submissions_values';
@@ -480,9 +496,9 @@ class Analytic_Suite_Content_Repository {
 
         $args = array_merge( $form_names, $date_args );
 
-        return (int) $wpdb->get_var(
+        $rows = $wpdb->get_col(
             $wpdb->prepare(
-                "SELECT COUNT(DISTINCT sv.value)
+                "SELECT DISTINCT LOWER(sv.value)
                  FROM {$sub} s
                  INNER JOIN {$val} sv ON sv.submission_id = s.id AND sv.key = 'your_email'
                  WHERE s.form_name IN ({$ph})
@@ -491,6 +507,8 @@ class Analytic_Suite_Content_Repository {
                 ...$args
             )
         );
+
+        return array_values( array_filter( (array) $rows ) );
     }
 
     /**
@@ -716,84 +734,125 @@ class Analytic_Suite_Content_Repository {
     }
 
     /**
-     * Counts registered apprenants (Elementor, date-filtered) whose email appears
-     * in at least one completed WooCommerce order. Supports both HPOS and legacy storage.
+     * Counts unique customers with at least one completed WooCommerce order
+     * (any product), regardless of whether they also registered for free content.
+     * Supports both HPOS and legacy storage.
      *
-     * @param string $date_from Registration start date (Y-m-d).
-     * @param string $date_to   Registration end date (Y-m-d).
+     * @param string $date_from Order start date (Y-m-d).
+     * @param string $date_to   Order end date (Y-m-d).
      * @return int
      */
     public function get_paying_apprenants_count( $date_from = '', $date_to = '' ) {
-        if ( ! $this->elementor_tables_exist() ) {
-            return 0;
+        return count( $this->get_paying_customer_emails( $date_from, $date_to ) );
+    }
+
+    /**
+     * Counts unique apprenants active in the period: either paid (completed
+     * WooCommerce order) or followed a content (masterclass/book tracking tables).
+     *
+     * @param string $date_from Start date (Y-m-d).
+     * @param string $date_to   End date (Y-m-d).
+     * @return int
+     */
+    public function get_active_apprenants_count( $date_from = '', $date_to = '' ) {
+        $paying_emails = $this->get_paying_customer_emails( $date_from, $date_to );
+
+        $content_emails = array();
+        foreach ( $this->get_active_content_user_ids( $date_from, $date_to ) as $user_id ) {
+            $user = get_userdata( $user_id );
+            if ( $user && ! empty( $user->user_email ) ) {
+                $content_emails[] = strtolower( $user->user_email );
+            }
         }
 
+        return count( array_unique( array_merge( $paying_emails, $content_emails ) ) );
+    }
+
+    /**
+     * Returns distinct WP user IDs who followed a content (masterclass or book)
+     * within the given date range, across both tracking tables.
+     *
+     * @param string $date_from Start date (Y-m-d).
+     * @param string $date_to   End date (Y-m-d).
+     * @return int[]
+     */
+    private function get_active_content_user_ids( $date_from = '', $date_to = '' ) {
         global $wpdb;
 
-        // Collect distinct billing emails from completed WC orders (HPOS + legacy).
+        $filters = array(
+            'date_from' => $date_from,
+            'date_to'   => $date_to,
+        );
+
+        $ids = array();
+
+        foreach ( array( 'user_masterclass', 'user_livres' ) as $table_slug ) {
+            if ( ! $this->table_exists( $table_slug ) ) {
+                continue;
+            }
+
+            $table = $wpdb->prefix . $table_slug;
+            $query = $this->build_date_where( $table, $filters );
+            $rows  = $wpdb->get_col( 'SELECT DISTINCT user_id FROM `' . esc_sql( $table ) . '` WHERE ' . $query['where'] );
+            $ids   = array_merge( $ids, array_map( 'intval', $rows ) );
+        }
+
+        return array_values( array_unique( array_filter( $ids ) ) );
+    }
+
+    /**
+     * Returns distinct billing emails from completed WooCommerce orders
+     * (HPOS + legacy storage), optionally filtered by order date.
+     *
+     * @param string $date_from Order start date (Y-m-d).
+     * @param string $date_to   Order end date (Y-m-d).
+     * @return array Lowercase emails.
+     */
+    private function get_paying_customer_emails( $date_from = '', $date_to = '' ) {
+        global $wpdb;
+
         $paying_emails = array();
 
         $hpos_table = $wpdb->prefix . 'wc_orders';
         if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $hpos_table ) ) === $hpos_table ) {
-            $rows = $wpdb->get_col(
-                "SELECT DISTINCT LOWER(billing_email) FROM `{$hpos_table}`
-                 WHERE status = 'wc-completed' AND billing_email != ''"
-            );
+            $sql  = "SELECT DISTINCT LOWER(billing_email) FROM `{$hpos_table}` WHERE status = 'wc-completed' AND billing_email != ''";
+            $args = array();
+            if ( ! empty( $date_from ) ) {
+                $sql   .= ' AND date_created_gmt >= %s';
+                $args[] = $date_from . ' 00:00:00';
+            }
+            if ( ! empty( $date_to ) ) {
+                $sql   .= ' AND date_created_gmt <= %s';
+                $args[] = $date_to . ' 23:59:59';
+            }
+            $rows = $args ? $wpdb->get_col( $wpdb->prepare( $sql, ...$args ) ) : $wpdb->get_col( $sql );
             if ( $rows ) {
                 $paying_emails = $rows;
             }
         }
 
-        $legacy_rows = $wpdb->get_col(
-            "SELECT DISTINCT LOWER(pm.meta_value)
+        $legacy_sql  = "SELECT DISTINCT LOWER(pm.meta_value)
              FROM {$wpdb->postmeta} pm
              INNER JOIN {$wpdb->posts} p ON p.ID = pm.post_id
              WHERE pm.meta_key = '_billing_email'
                AND pm.meta_value != ''
                AND p.post_type = 'shop_order'
-               AND p.post_status = 'wc-completed'"
-        );
+               AND p.post_status = 'wc-completed'";
+        $legacy_args = array();
+        if ( ! empty( $date_from ) ) {
+            $legacy_sql   .= ' AND p.post_date >= %s';
+            $legacy_args[] = $date_from . ' 00:00:00';
+        }
+        if ( ! empty( $date_to ) ) {
+            $legacy_sql   .= ' AND p.post_date <= %s';
+            $legacy_args[] = $date_to . ' 23:59:59';
+        }
+        $legacy_rows = $legacy_args ? $wpdb->get_col( $wpdb->prepare( $legacy_sql, ...$legacy_args ) ) : $wpdb->get_col( $legacy_sql );
         if ( $legacy_rows ) {
             $paying_emails = array_unique( array_merge( $paying_emails, $legacy_rows ) );
         }
 
-        $paying_emails = array_values( array_filter( $paying_emails ) );
-        if ( empty( $paying_emails ) ) {
-            return 0;
-        }
-
-        $sub      = $wpdb->prefix . 'e_submissions';
-        $val      = $wpdb->prefix . 'e_submissions_values';
-        $forms    = array( 'Form Register Masterclass', 'Form Livre Blanc' );
-        $form_ph  = implode( ',', array_fill( 0, count( $forms ), '%s' ) );
-        $email_ph = implode( ',', array_fill( 0, count( $paying_emails ), '%s' ) );
-        $date_col = $this->get_submissions_date_column();
-
-        $date_sql  = '';
-        $date_args = array();
-        if ( $date_col && ! empty( $date_from ) ) {
-            $date_sql  .= " AND s.{$date_col} >= %s";
-            $date_args[] = $date_from . ' 00:00:00';
-        }
-        if ( $date_col && ! empty( $date_to ) ) {
-            $date_sql  .= " AND s.{$date_col} <= %s";
-            $date_args[] = $date_to . ' 23:59:59';
-        }
-
-        $args = array_merge( $forms, $date_args, $paying_emails );
-
-        return (int) $wpdb->get_var(
-            $wpdb->prepare(
-                "SELECT COUNT(DISTINCT LOWER(sv.value))
-                 FROM {$sub} s
-                 INNER JOIN {$val} sv ON sv.submission_id = s.id AND sv.key = 'your_email'
-                 WHERE s.form_name IN ({$form_ph})
-                   AND sv.value != ''
-                   {$date_sql}
-                   AND LOWER(sv.value) IN ({$email_ph})",
-                ...$args
-            )
-        );
+        return array_values( array_filter( $paying_emails ) );
     }
 
     /**
