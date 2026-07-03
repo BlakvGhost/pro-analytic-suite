@@ -462,12 +462,16 @@ class Analytic_Suite {
         $top_masterclasses    = $content_repo->get_top_masterclasses_from_elementor( 5, $filters['date_from'], $filters['date_to'] );
 
         // Classify GA4 cities as urban/rural via Open-Meteo Geocoding API (cached 30 days).
-        $zone_counts = $this->get_urban_rural_counts( $city_breakdown );
-        $loc_urban   = $zone_counts['urban'];
-        $loc_rural   = $zone_counts['rural'];
-        $loc_total   = $loc_urban + $loc_rural;
-        $urban_pct   = $loc_total > 0 ? number_format_i18n( round( $loc_urban / $loc_total * 100, 1 ), 1 ) : '0';
-        $rural_pct   = $loc_total > 0 ? number_format_i18n( round( $loc_rural / $loc_total * 100, 1 ), 1 ) : '0';
+        $zone_counts    = $this->get_urban_rural_counts( $city_breakdown );
+        $loc_urban      = $zone_counts['urban'];
+        $loc_rural      = $zone_counts['rural'];
+        $loc_total      = $loc_urban + $loc_rural;
+        $loc_unresolved = max( 0, $active_users_ga - $loc_total );
+
+        // Percentages are relative to active GA4 visitors — the pool of users who could potentially be located.
+        $urban_pct      = $active_users_ga > 0 ? number_format_i18n( round( $loc_urban / $active_users_ga * 100, 1 ), 1 ) : '0';
+        $rural_pct      = $active_users_ga > 0 ? number_format_i18n( round( $loc_rural / $active_users_ga * 100, 1 ), 1 ) : '0';
+        $unresolved_pct = $active_users_ga > 0 ? number_format_i18n( round( $loc_unresolved / $active_users_ga * 100, 1 ), 1 ) : '0';
 
         ob_start();
         ?>
@@ -524,10 +528,11 @@ class Analytic_Suite {
                 <?php $this->render_public_chart( __( 'Localisation', 'analytic-suite' ), 'doughnut', $location_breakdown ); ?>
             </div>
 
-            <?php if ( $loc_total > 0 ) : ?>
+            <?php if ( $active_users_ga > 0 ) : ?>
             <div class="as-public-grid as-public-grid--location">
-                <?php $this->render_public_stat_card( __( 'Zone urbaine', 'analytic-suite' ), $loc_urban, $urban_pct . __( '% des visiteurs localisés', 'analytic-suite' ) ); ?>
-                <?php $this->render_public_stat_card( __( 'Zone rurale', 'analytic-suite' ), $loc_rural, $rural_pct . __( '% des visiteurs localisés', 'analytic-suite' ) ); ?>
+                <?php $this->render_public_stat_card( __( 'Zone urbaine', 'analytic-suite' ), $loc_urban, $urban_pct . __( '% des visiteurs actifs', 'analytic-suite' ) ); ?>
+                <?php $this->render_public_stat_card( __( 'Zone rurale', 'analytic-suite' ), $loc_rural, $rural_pct . __( '% des visiteurs actifs', 'analytic-suite' ) ); ?>
+                <?php $this->render_public_stat_card( __( 'Utilisateurs non localisés', 'analytic-suite' ), $loc_unresolved, $unresolved_pct . __( '% des visiteurs actifs', 'analytic-suite' ) ); ?>
             </div>
             <?php endif; ?>
 
