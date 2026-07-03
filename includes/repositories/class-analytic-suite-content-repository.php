@@ -812,7 +812,7 @@ class Analytic_Suite_Content_Repository {
      * @return int
      */
     public function get_total_unique_apprenants_count( $date_from = '', $date_to = '' ) {
-        $wp_emails     = $this->get_wp_user_emails();
+        $wp_emails     = $this->get_wp_user_emails( $date_from, $date_to );
         $free_emails   = $this->get_elementor_unique_emails( array( 'Form Register Masterclass', 'Form Livre Blanc' ), $date_from, $date_to );
         $paying_emails = $this->get_paying_customer_emails( $date_from, $date_to );
 
@@ -820,14 +820,29 @@ class Analytic_Suite_Content_Repository {
     }
 
     /**
-     * Returns distinct emails for every registered WordPress user.
+     * Returns distinct emails for WordPress users, optionally filtered by
+     * registration date so this source respects the period filter too.
      *
+     * @param string $date_from Registration start date (Y-m-d).
+     * @param string $date_to   Registration end date (Y-m-d).
      * @return array Lowercase emails.
      */
-    private function get_wp_user_emails() {
+    private function get_wp_user_emails( $date_from = '', $date_to = '' ) {
         global $wpdb;
 
-        $rows = $wpdb->get_col( "SELECT DISTINCT LOWER(user_email) FROM {$wpdb->users} WHERE user_email != ''" );
+        $sql  = "SELECT DISTINCT LOWER(user_email) FROM {$wpdb->users} WHERE user_email != ''";
+        $args = array();
+
+        if ( ! empty( $date_from ) ) {
+            $sql   .= ' AND user_registered >= %s';
+            $args[] = $date_from . ' 00:00:00';
+        }
+        if ( ! empty( $date_to ) ) {
+            $sql   .= ' AND user_registered <= %s';
+            $args[] = $date_to . ' 23:59:59';
+        }
+
+        $rows = $args ? $wpdb->get_col( $wpdb->prepare( $sql, ...$args ) ) : $wpdb->get_col( $sql );
 
         return array_values( array_filter( (array) $rows ) );
     }
