@@ -801,6 +801,38 @@ class Analytic_Suite_Content_Repository {
     }
 
     /**
+     * Counts unique apprenants across every known source, deduplicated by email:
+     * registered WordPress accounts, free-content Elementor forms, and paying
+     * WooCommerce customers. A form submitter who never created a WP account
+     * (or a customer who checked out as guest) is still counted once here —
+     * this is why the total can exceed a plain `wp_users` count.
+     *
+     * @param string $date_from Start date (Y-m-d), applies to form/order sources only.
+     * @param string $date_to   End date (Y-m-d), applies to form/order sources only.
+     * @return int
+     */
+    public function get_total_unique_apprenants_count( $date_from = '', $date_to = '' ) {
+        $wp_emails     = $this->get_wp_user_emails();
+        $free_emails   = $this->get_elementor_unique_emails( array( 'Form Register Masterclass', 'Form Livre Blanc' ), $date_from, $date_to );
+        $paying_emails = $this->get_paying_customer_emails( $date_from, $date_to );
+
+        return count( array_unique( array_merge( $wp_emails, $free_emails, $paying_emails ) ) );
+    }
+
+    /**
+     * Returns distinct emails for every registered WordPress user.
+     *
+     * @return array Lowercase emails.
+     */
+    private function get_wp_user_emails() {
+        global $wpdb;
+
+        $rows = $wpdb->get_col( "SELECT DISTINCT LOWER(user_email) FROM {$wpdb->users} WHERE user_email != ''" );
+
+        return array_values( array_filter( (array) $rows ) );
+    }
+
+    /**
      * Returns distinct billing emails from completed WooCommerce orders
      * (HPOS + legacy storage), optionally filtered by order date.
      *

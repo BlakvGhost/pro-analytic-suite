@@ -3,7 +3,7 @@
  * Plugin Name: Entourage Learn Plugin - Analytic Suite
  * Description: Suite analytics premium pour suivre les ventes WooCommerce, réservations FluentBooking, contenus, audiences GA4 et rapports publics.
  * Version: 0.1.10
- * Author: Kabirou ALASSANE
+ * Author: CYBERKA
  * Author URI: https://cyberka.com
  * Text Domain: analytic-suite
  * Domain Path: /languages

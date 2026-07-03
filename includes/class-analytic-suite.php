@@ -435,17 +435,18 @@ class Analytic_Suite {
         // Legacy WP demographics (disability/login use wp_usermeta — no date column, not filterable).
         $data            = $content_repo->get_public_demographics( $filters['date_from'], $filters['date_to'] );
 
-        // Total platform users = "Nouveaux Apprenants".
-        $total_users = $data['total_users'];
+        // Paying = unique customers with at least one completed WooCommerce order (any product).
+        $paying_count = $content_repo->get_paying_apprenants_count( $filters['date_from'], $filters['date_to'] );
+
+        // Total unique apprenants across WP accounts, free-content forms, and paying customers, deduped by
+        // email — always >= free_count and >= paying_count (a form submitter or guest buyer need not have a WP account).
+        $total_users = $content_repo->get_total_unique_apprenants_count( $filters['date_from'], $filters['date_to'] );
 
         // Use free_count as denominator when available; it shares the same date scope as the numerator.
         $rate_base       = $free_count > 0 ? $free_count : $total_users;
         $engagement_rate = $this->calculate_percentage( $data['completed_content'], $rate_base );
 
-        // Paying = unique customers with at least one completed WooCommerce order (any product).
-        $paying_count = $content_repo->get_paying_apprenants_count( $filters['date_from'], $filters['date_to'] );
-
-        // Active = unique apprenants who either paid or registered for free content.
+        // Active = unique apprenants who either paid or followed a content in the period.
         $active_count = $content_repo->get_active_apprenants_count( $filters['date_from'], $filters['date_to'] );
 
         $ga_data          = $this->get_public_ga_data( $filters );
@@ -492,7 +493,7 @@ class Analytic_Suite {
             </section>
 
             <div class="as-public-grid">
-                <?php $this->render_public_stat_card( __( 'Nouveaux Apprenants', 'analytic-suite' ), $total_users, __( 'Total inscrits sur la plateforme', 'analytic-suite' ) ); ?>
+                <?php $this->render_public_stat_card( __( 'Nouveaux Apprenants', 'analytic-suite' ), $total_users, __( '', 'analytic-suite' ) ); ?>
                 <?php $this->render_public_stat_card( __( 'Contenus consultés', 'analytic-suite' ), $data['completed_content'], number_format_i18n( $engagement_rate, 1 ) . '%' ); ?>
                 <?php $this->render_public_stat_card( __( 'Nouveaux apprenants payants', 'analytic-suite' ), $paying_count, __( '', 'analytic-suite' ) ); ?>
                 <?php $this->render_public_stat_card( __( 'Nouveaux apprenants gratuits', 'analytic-suite' ), $free_count, $active_users_ga > 0 ? number_format_i18n( $conversion_rate, 1 ) . '% ' . __( 'taux de conversion', 'analytic-suite' ) : __( 'Apprenants uniques', 'analytic-suite' ) ); ?>
