@@ -532,7 +532,7 @@ class Analytic_Suite {
             <div class="as-public-grid as-public-grid--location">
                 <?php $this->render_public_stat_card( __( 'Zone urbaine', 'analytic-suite' ), $loc_urban, $urban_pct . __( '% des visiteurs actifs', 'analytic-suite' ), __( 'Visiteurs actifs situés dans une ville identifiée comme urbaine (capitale, grande agglomération ou commune de plus de 10 000 habitants).', 'analytic-suite' ) ); ?>
                 <?php $this->render_public_stat_card( __( 'Zone rurale', 'analytic-suite' ), $loc_rural, $rural_pct . __( '% des visiteurs actifs', 'analytic-suite' ), __( 'Visiteurs actifs situés dans une commune identifiée comme rurale (moins de 10 000 habitants).', 'analytic-suite' ) ); ?>
-                <?php $this->render_public_stat_card( __( 'Utilisateurs non localisés', 'analytic-suite' ), $loc_unresolved, $unresolved_pct . __( '% des visiteurs actifs', 'analytic-suite' ), __( 'Visiteurs actifs dont la ville n\'a pas pu être identifiée ou classée en zone urbaine/rurale.', 'analytic-suite' ) ); ?>
+                <?php $this->render_public_stat_card( __( 'Visiteurs non localisés', 'analytic-suite' ), $loc_unresolved, $unresolved_pct . __( '% des visiteurs actifs', 'analytic-suite' ), __( 'Visiteurs actifs dont la ville n\'a pas pu être identifiée ou classée en zone urbaine/rurale.', 'analytic-suite' ) ); ?>
             </div>
             <?php endif; ?>
 
