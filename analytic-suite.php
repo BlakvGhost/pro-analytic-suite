@@ -1,8 +1,8 @@
 <?php
 /**
- * Plugin Name: Entourage Learn Plugin - Analytic Suite
+ * Plugin Name: Entourage Lite Plugin - Analytic Suite
  * Description: Suite analytics premium pour suivre les ventes WooCommerce, réservations FluentBooking, contenus, audiences GA4 et rapports publics.
- * Version: 0.1.11
+ * Version: 0.1.12
  * Author: CYBERKA
  * Author URI: https://cyberka.com
  * Text Domain: analytic-suite
@@ -15,7 +15,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-define( 'ANALYTIC_SUITE_VERSION', '0.1.11' );
+define( 'ANALYTIC_SUITE_VERSION', '0.1.12' );
 define( 'ANALYTIC_SUITE_FILE', __FILE__ );
 define( 'ANALYTIC_SUITE_PATH', plugin_dir_path( __FILE__ ) );
 define( 'ANALYTIC_SUITE_URL', plugin_dir_url( __FILE__ ) );

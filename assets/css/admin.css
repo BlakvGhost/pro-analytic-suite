@@ -888,6 +888,59 @@
     font-weight: 800;
 }
 
+.analytic-suite-public .as-public-card[data-tooltip] {
+    cursor: help;
+    transition: box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.analytic-suite-public .as-public-card[data-tooltip]:hover,
+.analytic-suite-public .as-public-card[data-tooltip]:focus-visible {
+    box-shadow: 0 16px 36px rgba(18, 32, 28, 0.14);
+    outline: none;
+    transform: translateY(-2px);
+}
+
+.analytic-suite-public .as-card-info {
+    align-items: center;
+    background: rgba(18, 32, 28, 0.06);
+    border-radius: 999px;
+    color: var(--as-public-muted);
+    display: flex;
+    font-size: 11px;
+    font-weight: 800;
+    height: 18px;
+    justify-content: center;
+    position: absolute;
+    right: 16px;
+    top: 16px;
+    width: 18px;
+}
+
+.analytic-suite-public .as-public-card[data-tooltip]::after {
+    right: 42px;
+}
+
+.as-public-card-tooltip {
+    background: rgba(23, 33, 29, 0.96);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 8px;
+    box-shadow: var(--as-public-shadow, 0 24px 70px rgba(18, 32, 28, 0.13));
+    color: #fff;
+    display: none;
+    font-size: 12.5px;
+    font-weight: 600;
+    line-height: 1.45;
+    max-width: 260px;
+    padding: 10px 12px;
+    pointer-events: none;
+    position: absolute;
+    z-index: 100000;
+}
+
+.as-public-card-tooltip.is-visible {
+    display: block;
+}
+
 .analytic-suite-public .as-public-insights {
     display: grid;
     gap: 14px;

@@ -493,10 +493,10 @@ class Analytic_Suite {
             </section>
 
             <div class="as-public-grid">
-                <?php $this->render_public_stat_card( __( 'Nouveaux Apprenants', 'analytic-suite' ), $total_users, __( '', 'analytic-suite' ) ); ?>
-                <?php $this->render_public_stat_card( __( 'Nouveaux apprenants payants', 'analytic-suite' ), $paying_count, __( '', 'analytic-suite' ) ); ?>
-                <?php $this->render_public_stat_card( __( 'Nouveaux apprenants gratuits', 'analytic-suite' ), $free_count, $active_users_ga > 0 ? number_format_i18n( $conversion_rate, 1 ) . '% ' . __( 'taux de conversion', 'analytic-suite' ) : __( 'Apprenants uniques', 'analytic-suite' ) ); ?>
-                <?php $this->render_public_stat_card( __( 'Apprenants actifs', 'analytic-suite' ), $active_count, __( '', 'analytic-suite' ) ); ?>
+                <?php $this->render_public_stat_card( __( 'Nouveaux Apprenants', 'analytic-suite' ), $total_users, __( '', 'analytic-suite' ), __( 'Toutes les personnes uniques arrivées sur la période : comptes créés, formulaires de contenu gratuit remplis ou achats effectués. Chaque personne n\'est comptée qu\'une seule fois, même si elle a fait plusieurs de ces actions.', 'analytic-suite' ) ); ?>
+                <?php $this->render_public_stat_card( __( 'Nouveaux apprenants payants', 'analytic-suite' ), $paying_count, __( '', 'analytic-suite' ), __( 'Nombre de clients uniques ayant réalisé au moins un achat validé (commande complétée) sur la période.', 'analytic-suite' ) ); ?>
+                <?php $this->render_public_stat_card( __( 'Nouveaux apprenants gratuits', 'analytic-suite' ), $free_count, $active_users_ga > 0 ? number_format_i18n( $conversion_rate, 1 ) . '% ' . __( 'taux de conversion', 'analytic-suite' ) : __( 'Apprenants uniques', 'analytic-suite' ), __( 'Nombre de personnes uniques ayant rempli un formulaire pour accéder à un contenu gratuit (masterclass, livre, expert session) sur la période. Le taux de conversion indique la part de ces visiteurs par rapport aux visiteurs actifs du site.', 'analytic-suite' ) ); ?>
+                <?php $this->render_public_stat_card( __( 'Apprenants actifs', 'analytic-suite' ), $active_count, __( '', 'analytic-suite' ), __( 'Personnes uniques ayant soit acheté, soit consulté un contenu (gratuit ou payant) sur la période. Un bon indicateur de l\'engagement global.', 'analytic-suite' ) ); ?>
             </div>
 
             <?php if ( ! empty( $ga_data['configured'] ) ) : ?>
@@ -505,10 +505,10 @@ class Analytic_Suite {
                         <h3><?php esc_html_e( 'Performance des contenus', 'analytic-suite' ); ?></h3>
                     </div>
                     <div class="as-public-grid">
-                        <?php $this->render_public_stat_card( __( 'Visiteurs actifs', 'analytic-suite' ), $ga_data['summary']['active_users'], $filters['period_label'] ); ?>
-                        <?php $this->render_public_stat_card( __( 'Sessions', 'analytic-suite' ), $ga_data['summary']['sessions'], __( 'Trafic', 'analytic-suite' ) ); ?>
-                        <?php $this->render_public_stat_card( __( 'Pages vues', 'analytic-suite' ), $ga_data['summary']['page_views'], __( 'Vues', 'analytic-suite' ) ); ?>
-                        <?php $this->render_public_stat_card( __( 'Nouveaux visiteurs', 'analytic-suite' ), $ga_data['summary']['new_users'], $ga_data['summary']['avg_duration'] ); ?>
+                        <?php $this->render_public_stat_card( __( 'Visiteurs actifs', 'analytic-suite' ), $ga_data['summary']['active_users'], $filters['period_label'], __( 'Nombre de personnes ayant visité le site sur la période, mesuré par Google Analytics. Une même personne n\'est comptée qu\'une fois, même si elle revient plusieurs fois.', 'analytic-suite' ) ); ?>
+                        <?php $this->render_public_stat_card( __( 'Sessions', 'analytic-suite' ), $ga_data['summary']['sessions'], __( 'Trafic', 'analytic-suite' ), __( 'Nombre total de visites sur le site. Une même personne qui revient plusieurs fois génère plusieurs sessions.', 'analytic-suite' ) ); ?>
+                        <?php $this->render_public_stat_card( __( 'Pages vues', 'analytic-suite' ), $ga_data['summary']['page_views'], __( 'Vues', 'analytic-suite' ), __( 'Nombre total de pages consultées sur le site, toutes visites confondues.', 'analytic-suite' ) ); ?>
+                        <?php $this->render_public_stat_card( __( 'Nouveaux visiteurs', 'analytic-suite' ), $ga_data['summary']['new_users'], $ga_data['summary']['avg_duration'], __( 'Nombre de personnes venues sur le site pour la première fois sur la période (jamais vues auparavant par Google Analytics).', 'analytic-suite' ) ); ?>
                     </div>
                     <div class="as-public-charts">
                         <?php $this->render_public_chart( __( 'Indicateurs GA4', 'analytic-suite' ), 'bar', array(
@@ -530,9 +530,9 @@ class Analytic_Suite {
 
             <?php if ( $active_users_ga > 0 ) : ?>
             <div class="as-public-grid as-public-grid--location">
-                <?php $this->render_public_stat_card( __( 'Zone urbaine', 'analytic-suite' ), $loc_urban, $urban_pct . __( '% des visiteurs actifs', 'analytic-suite' ) ); ?>
-                <?php $this->render_public_stat_card( __( 'Zone rurale', 'analytic-suite' ), $loc_rural, $rural_pct . __( '% des visiteurs actifs', 'analytic-suite' ) ); ?>
-                <?php $this->render_public_stat_card( __( 'Utilisateurs non localisés', 'analytic-suite' ), $loc_unresolved, $unresolved_pct . __( '% des visiteurs actifs', 'analytic-suite' ) ); ?>
+                <?php $this->render_public_stat_card( __( 'Zone urbaine', 'analytic-suite' ), $loc_urban, $urban_pct . __( '% des visiteurs actifs', 'analytic-suite' ), __( 'Visiteurs actifs situés dans une ville identifiée comme urbaine (capitale, grande agglomération ou commune de plus de 10 000 habitants).', 'analytic-suite' ) ); ?>
+                <?php $this->render_public_stat_card( __( 'Zone rurale', 'analytic-suite' ), $loc_rural, $rural_pct . __( '% des visiteurs actifs', 'analytic-suite' ), __( 'Visiteurs actifs situés dans une commune identifiée comme rurale (moins de 10 000 habitants).', 'analytic-suite' ) ); ?>
+                <?php $this->render_public_stat_card( __( 'Utilisateurs non localisés', 'analytic-suite' ), $loc_unresolved, $unresolved_pct . __( '% des visiteurs actifs', 'analytic-suite' ), __( 'Visiteurs actifs dont la ville n\'a pas pu être identifiée ou classée en zone urbaine/rurale.', 'analytic-suite' ) ); ?>
             </div>
             <?php endif; ?>
 
@@ -560,12 +560,17 @@ class Analytic_Suite {
     /**
      * Renders a public stat card.
      *
-     * @param string $label Label.
-     * @param int    $value Value.
-     * @param string $note  Note.
+     * @param string $label       Label.
+     * @param int    $value       Value.
+     * @param string $note        Note.
+     * @param string $description Plain-language explanation shown on hover/focus. Optional.
      */
-    private function render_public_stat_card( $label, $value, $note ) {
-        echo '<div class="as-public-card">';
+    private function render_public_stat_card( $label, $value, $note, $description = '' ) {
+        $has_description = ! empty( $description );
+        echo '<div class="as-public-card"' . ( $has_description ? ' data-tooltip="' . esc_attr( $description ) . '" tabindex="0"' : '' ) . '>';
+        if ( $has_description ) {
+            echo '<span class="as-card-info" aria-hidden="true">?</span>';
+        }
         echo '<span class="as-card-label">' . esc_html( $label ) . '</span>';
         echo '<strong class="as-card-value">' . esc_html( number_format_i18n( (int) $value ) ) . '</strong>';
         echo '<small>' . esc_html( $note ) . '</small>';

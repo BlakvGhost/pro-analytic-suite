@@ -392,4 +392,63 @@
             }
         });
     }
+
+    // Public stat cards — hover/focus tooltip explaining what each figure represents.
+    var tooltipCards = document.querySelectorAll('.as-public-card[data-tooltip]');
+
+    if (tooltipCards.length) {
+        var getCardTooltip = function () {
+            var tooltip = document.querySelector('.as-public-card-tooltip');
+
+            if (!tooltip) {
+                tooltip = document.createElement('div');
+                tooltip.className = 'as-public-card-tooltip';
+                tooltip.setAttribute('role', 'tooltip');
+                document.body.appendChild(tooltip);
+            }
+
+            return tooltip;
+        };
+
+        var hideCardTooltip = function () {
+            var tooltip = document.querySelector('.as-public-card-tooltip');
+
+            if (tooltip) {
+                tooltip.classList.remove('is-visible');
+            }
+        };
+
+        var positionCardTooltip = function (tooltip, x, y) {
+            var margin = 12;
+            var maxLeft = window.innerWidth + window.scrollX - tooltip.offsetWidth - margin;
+            var maxTop = window.innerHeight + window.scrollY - tooltip.offsetHeight - margin;
+
+            tooltip.style.left = Math.max(margin, Math.min(x, maxLeft)) + 'px';
+            tooltip.style.top = Math.max(margin, Math.min(y, maxTop)) + 'px';
+        };
+
+        var showCardTooltip = function (text, x, y) {
+            var tooltip = getCardTooltip();
+            tooltip.textContent = text;
+            tooltip.classList.add('is-visible');
+            positionCardTooltip(tooltip, x, y);
+        };
+
+        tooltipCards.forEach(function (card) {
+            var text = card.getAttribute('data-tooltip');
+
+            card.addEventListener('mousemove', function (event) {
+                showCardTooltip(text, event.pageX + 16, event.pageY + 16);
+            });
+
+            card.addEventListener('mouseleave', hideCardTooltip);
+
+            card.addEventListener('focus', function () {
+                var rect = card.getBoundingClientRect();
+                showCardTooltip(text, rect.left + window.scrollX, rect.bottom + window.scrollY + 8);
+            });
+
+            card.addEventListener('blur', hideCardTooltip);
+        });
+    }
 })();
