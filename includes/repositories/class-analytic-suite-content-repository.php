@@ -802,49 +802,19 @@ class Analytic_Suite_Content_Repository {
 
     /**
      * Counts unique apprenants across every known source, deduplicated by email:
-     * registered WordPress accounts, free-content Elementor forms, and paying
-     * WooCommerce customers. A form submitter who never created a WP account
-     * (or a customer who checked out as guest) is still counted once here —
-     * this is why the total can exceed a plain `wp_users` count.
+     * free-content Elementor forms and paying WooCommerce customers. A WordPress
+     * account with neither a form submission nor a completed order is excluded —
+     * creating an account alone does not make someone an "apprenant".
      *
      * @param string $date_from Start date (Y-m-d), applies to form/order sources only.
      * @param string $date_to   End date (Y-m-d), applies to form/order sources only.
      * @return int
      */
     public function get_total_unique_apprenants_count( $date_from = '', $date_to = '' ) {
-        $wp_emails     = $this->get_wp_user_emails( $date_from, $date_to );
         $free_emails   = $this->get_elementor_unique_emails( array( 'Form Register Masterclass', 'Form Livre Blanc' ), $date_from, $date_to );
         $paying_emails = $this->get_paying_customer_emails( $date_from, $date_to );
 
-        return count( array_unique( array_merge( $wp_emails, $free_emails, $paying_emails ) ) );
-    }
-
-    /**
-     * Returns distinct emails for WordPress users, optionally filtered by
-     * registration date so this source respects the period filter too.
-     *
-     * @param string $date_from Registration start date (Y-m-d).
-     * @param string $date_to   Registration end date (Y-m-d).
-     * @return array Lowercase emails.
-     */
-    private function get_wp_user_emails( $date_from = '', $date_to = '' ) {
-        global $wpdb;
-
-        $sql  = "SELECT DISTINCT LOWER(user_email) FROM {$wpdb->users} WHERE user_email != ''";
-        $args = array();
-
-        if ( ! empty( $date_from ) ) {
-            $sql   .= ' AND user_registered >= %s';
-            $args[] = $date_from . ' 00:00:00';
-        }
-        if ( ! empty( $date_to ) ) {
-            $sql   .= ' AND user_registered <= %s';
-            $args[] = $date_to . ' 23:59:59';
-        }
-
-        $rows = $args ? $wpdb->get_col( $wpdb->prepare( $sql, ...$args ) ) : $wpdb->get_col( $sql );
-
-        return array_values( array_filter( (array) $rows ) );
+        return count( array_unique( array_merge( $free_emails, $paying_emails ) ) );
     }
 
     /**

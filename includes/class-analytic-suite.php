@@ -438,8 +438,8 @@ class Analytic_Suite {
         // Paying = unique customers with at least one completed WooCommerce order (any product).
         $paying_count = $content_repo->get_paying_apprenants_count( $filters['date_from'], $filters['date_to'] );
 
-        // Total unique apprenants across WP accounts, free-content forms, and paying customers, deduped by
-        // email — always >= free_count and >= paying_count (a form submitter or guest buyer need not have a WP account).
+        // Total unique apprenants across free-content forms and paying customers, deduped by email.
+        // A plain WP account with no form submission and no completed order is deliberately excluded.
         $total_users = $content_repo->get_total_unique_apprenants_count( $filters['date_from'], $filters['date_to'] );
 
         // Use free_count as denominator when available; it shares the same date scope as the numerator.
@@ -493,7 +493,7 @@ class Analytic_Suite {
             </section>
 
             <div class="as-public-grid">
-                <?php $this->render_public_stat_card( __( 'Nouveaux Apprenants', 'analytic-suite' ), $total_users, __( '', 'analytic-suite' ), __( 'Toutes les personnes uniques arrivées sur la période : comptes créés, formulaires de contenu gratuit remplis ou achats effectués. Chaque personne n\'est comptée qu\'une seule fois, même si elle a fait plusieurs de ces actions.', 'analytic-suite' ) ); ?>
+                <?php $this->render_public_stat_card( __( 'Nouveaux Apprenants', 'analytic-suite' ), $total_users, __( '', 'analytic-suite' ), __( 'Personnes uniques ayant rempli un formulaire de contenu gratuit et/ou effectué un achat sur la période. La simple création d\'un compte, sans formulaire ni achat, n\'est pas comptée.', 'analytic-suite' ) ); ?>
                 <?php $this->render_public_stat_card( __( 'Nouveaux apprenants payants', 'analytic-suite' ), $paying_count, __( '', 'analytic-suite' ), __( 'Nombre de clients uniques ayant réalisé au moins un achat validé (commande complétée) sur la période.', 'analytic-suite' ) ); ?>
                 <?php $this->render_public_stat_card( __( 'Nouveaux apprenants gratuits', 'analytic-suite' ), $free_count, $active_users_ga > 0 ? number_format_i18n( $conversion_rate, 1 ) . '% ' . __( 'taux de conversion', 'analytic-suite' ) : __( 'Apprenants uniques', 'analytic-suite' ), __( 'Nombre de personnes uniques ayant rempli un formulaire pour accéder à un contenu gratuit (masterclass, livre, expert session) sur la période. Le taux de conversion indique la part de ces visiteurs par rapport aux visiteurs actifs du site.', 'analytic-suite' ) ); ?>
                 <?php $this->render_public_stat_card( __( 'Apprenants actifs', 'analytic-suite' ), $active_count, __( '', 'analytic-suite' ), __( 'Personnes uniques ayant soit acheté, soit consulté un contenu (gratuit ou payant) sur la période. Un bon indicateur de l\'engagement global.', 'analytic-suite' ) ); ?>
