@@ -394,7 +394,7 @@
     }
 
     // Public stat cards — hover/focus tooltip explaining what each figure represents.
-    var tooltipCards = document.querySelectorAll('.as-public-card[data-tooltip]');
+    var tooltipCards = document.querySelectorAll('.as-public-card[data-tooltip], .as-public-hero-meter[data-tooltip]');
 
     if (tooltipCards.length) {
         var getCardTooltip = function () {

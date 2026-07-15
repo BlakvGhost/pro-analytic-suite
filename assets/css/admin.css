@@ -781,7 +781,7 @@
     padding: 18px;
 }
 
-.analytic-suite-public .as-public-hero-meter span {
+.analytic-suite-public .as-public-hero-meter span:not(.as-card-info) {
     color: rgba(255, 255, 255, 0.72);
     display: block;
     font-size: 12px;
@@ -888,13 +888,16 @@
     font-weight: 800;
 }
 
-.analytic-suite-public .as-public-card[data-tooltip] {
+.analytic-suite-public .as-public-card[data-tooltip],
+.analytic-suite-public .as-public-hero-meter[data-tooltip] {
     cursor: help;
     transition: box-shadow 0.15s ease, transform 0.15s ease;
 }
 
 .analytic-suite-public .as-public-card[data-tooltip]:hover,
-.analytic-suite-public .as-public-card[data-tooltip]:focus-visible {
+.analytic-suite-public .as-public-card[data-tooltip]:focus-visible,
+.analytic-suite-public .as-public-hero-meter[data-tooltip]:hover,
+.analytic-suite-public .as-public-hero-meter[data-tooltip]:focus-visible {
     box-shadow: 0 16px 36px rgba(18, 32, 28, 0.14);
     outline: none;
     transform: translateY(-2px);
@@ -918,6 +921,11 @@
 
 .analytic-suite-public .as-public-card[data-tooltip]::after {
     right: 42px;
+}
+
+.analytic-suite-public .as-public-hero-meter .as-card-info {
+    background: rgba(255, 255, 255, 0.18);
+    color: #fff;
 }
 
 .as-public-card-tooltip {

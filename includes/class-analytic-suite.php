@@ -485,7 +485,8 @@ class Analytic_Suite {
                     <h2><?php esc_html_e( 'Tableau de bord', 'analytic-suite' ); ?></h2>
                     <p><?php esc_html_e( "Une lecture claire des profils, de l'engagement et de la progression des apprenants.", 'analytic-suite' ); ?></p>
                 </div>
-                <div class="as-public-hero-meter">
+                <div class="as-public-hero-meter" data-tooltip="<?php echo esc_attr__( "Part des apprenants ayant consulté au moins un contenu (masterclass, livre, etc.) sur la période, calculée sur les nouveaux apprenants gratuits (ou sur l'ensemble des apprenants si aucun formulaire gratuit n'a été rempli sur la période).", 'analytic-suite' ); ?>" tabindex="0">
+                    <span class="as-card-info" aria-hidden="true">?</span>
                     <span><?php esc_html_e( 'Engagement contenu', 'analytic-suite' ); ?></span>
                     <strong><?php echo esc_html( number_format_i18n( $engagement_rate, 1 ) ); ?>%</strong>
                     <div class="as-public-meter-track"><span style="width: <?php echo esc_attr( min( 100, $engagement_rate ) ); ?>%"></span></div>
@@ -495,7 +496,7 @@ class Analytic_Suite {
             <div class="as-public-grid">
                 <?php $this->render_public_stat_card( __( 'Nouveaux Apprenants', 'analytic-suite' ), $total_users, __( '', 'analytic-suite' ), __( 'Personnes uniques ayant rempli un formulaire de contenu gratuit et/ou effectué un achat sur la période. La simple création d\'un compte, sans formulaire ni achat, n\'est pas comptée.', 'analytic-suite' ) ); ?>
                 <?php $this->render_public_stat_card( __( 'Nouveaux apprenants payants', 'analytic-suite' ), $paying_count, __( '', 'analytic-suite' ), __( 'Nombre de clients uniques ayant réalisé au moins un achat validé (commande complétée) sur la période.', 'analytic-suite' ) ); ?>
-                <?php $this->render_public_stat_card( __( 'Nouveaux apprenants gratuits', 'analytic-suite' ), $free_count, $active_users_ga > 0 ? number_format_i18n( $conversion_rate, 1 ) . '% ' . __( 'taux de conversion', 'analytic-suite' ) : __( 'Apprenants uniques', 'analytic-suite' ), __( 'Nombre de personnes uniques ayant rempli un formulaire pour accéder à un contenu gratuit (masterclass, livre, expert session) sur la période. Le taux de conversion indique la part de ces visiteurs par rapport aux visiteurs actifs du site.', 'analytic-suite' ) ); ?>
+                <?php $this->render_public_stat_card( __( 'Nouveaux apprenants gratuits', 'analytic-suite' ), $free_count, $active_users_ga > 0 ? number_format_i18n( $conversion_rate, 1 ) . '% ' . __( 'taux de conversion', 'analytic-suite' ) : __( 'Apprenants uniques', 'analytic-suite' ), __( 'Nombre de personnes uniques ayant rempli un formulaire pour accéder à un contenu gratuit (masterclass, livre, épisode) sur la période. Le taux de conversion indique la part de ces visiteurs par rapport aux visiteurs actifs du site.', 'analytic-suite' ) ); ?>
                 <?php $this->render_public_stat_card( __( 'Apprenants actifs', 'analytic-suite' ), $active_count, __( '', 'analytic-suite' ), __( 'Personnes uniques ayant soit acheté, soit consulté un contenu (gratuit ou payant) sur la période. Un bon indicateur de l\'engagement global.', 'analytic-suite' ) ); ?>
             </div>
 
