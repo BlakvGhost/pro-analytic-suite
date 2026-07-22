@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Plugin Overview
 
-**Pro Analytics Suite** is a WordPress plugin (v0.1.3) that aggregates analytics data from WooCommerce orders, FluentBooking bookings, custom content tables, and Google Analytics 4. It exposes data via a REST API and renders an admin dashboard with charts and export capabilities.
+**Entourage Lite Plugin** is a WordPress plugin (v0.1.3) that aggregates analytics data from WooCommerce orders, FluentBooking bookings, custom content tables, and Google Analytics 4. It exposes data via a REST API and renders an admin dashboard with charts and export capabilities.
 
 No Composer or npm is used. All dependencies are either WordPress core, WooCommerce/FluentBooking (runtime optionals), or the GA4 Data API v1 called directly via cURL.
 

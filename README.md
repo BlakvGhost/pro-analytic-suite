@@ -1,4 +1,4 @@
-# Pro Analytics Suite
+# Entourage Lite Plugin
 
 Plugin WordPress d'analytics premium pour centraliser les ventes WooCommerce, les reservations FluentBooking, les contenus suivis et les donnees Google Analytics 4.
 

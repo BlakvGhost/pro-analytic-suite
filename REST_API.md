@@ -1,4 +1,4 @@
-# Documentation API REST - Pro Analytics Suite
+# Documentation API REST - Entourage Lite Plugin
 
 Base URL :
 

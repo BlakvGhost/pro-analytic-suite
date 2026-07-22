@@ -192,7 +192,7 @@ class Analytic_Suite_Export_Controller {
         $content = "q\n";
         $content .= "0.95 0.98 0.97 rg 0 0 595 842 re f\n";
         $content .= "0.06 0.14 0.12 rg 36 770 523 38 re f\n";
-        $content .= "BT /F2 16 Tf 1 1 1 rg 52 783 Td (Pro Analytics Suite) Tj ET\n";
+        $content .= "BT /F2 16 Tf 1 1 1 rg 52 783 Td (Entourage Lite Plugin) Tj ET\n";
         $content .= "0 0 0 rg\n";
 
         $y = 730;
